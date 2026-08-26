@@ -160,6 +160,7 @@ add_executable(AngelAuraAmethyst
   MinecraftResourceUtils.m
   PickTextField.m
   PLLogOutputView.m
+  PLMotion.m
   PLPickerView.m
   PLPreferences.m
   PLPrefTableViewController.m

@@ -8,6 +8,7 @@
 #import "LauncherPreferences.h"
 #import "LauncherPreferencesViewController.h"
 #import "LauncherProfilesViewController.h"
+#import "PLMotion.h"
 #import "PLProfiles.h"
 #import "UIButton+AFNetworking.h"
 #import "UIImageView+AFNetworking.h"
@@ -236,6 +237,15 @@
             self.options[self.lastSelectedIndex].vcArray = contentNavigationController.viewControllers;
             [contentNavigationController setViewControllers:selected.vcArray animated:NO];
             self.lastSelectedIndex = indexPath.row;
+
+            // Bring the incoming screen in, then let its sections cascade behind it
+            UIViewController *incoming = selected.vcArray.firstObject;
+            PLMotionPaneIn(incoming.view);
+            if ([incoming isKindOfClass:UITableViewController.class]) {
+                UITableView *tableView = ((UITableViewController *)incoming).tableView;
+                [tableView layoutIfNeeded];
+                PLMotionStaggerTableView(tableView);
+            }
         }
         selected.vcArray[0].navigationItem.rightBarButtonItem = self.accountBtnItem;
         selected.vcArray[0].navigationItem.leftBarButtonItem = self.splitViewController.displayModeButtonItem;
@@ -341,9 +351,16 @@
 
 - (void)displayProgress:(NSString *)status {
     if (status == nil) {
-        [(UIActivityIndicatorView *)self.toolbarItems[0].customView stopAnimating];
+        // Let the spinner fade out rather than blink away
+        UIActivityIndicatorView *indicator = (UIActivityIndicatorView *)self.toolbarItems[0].customView;
+        PLMotionAnimate(PLMotionDurationBase, PLMotionCurveInOut, ^{
+            indicator.alpha = 0;
+        }, ^(BOOL finished) {
+            [indicator stopAnimating];
+            indicator.alpha = 1;
+        });
     } else {
-        self.toolbarItems[1].title = status;
+        PLMotionFadeSwapBarItem(self.toolbarItems[1], status);
     }
 }
 

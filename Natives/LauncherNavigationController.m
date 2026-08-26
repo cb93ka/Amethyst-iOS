@@ -11,6 +11,7 @@
 #import "MinecraftResourceDownloadTask.h"
 #import "MinecraftResourceUtils.h"
 #import "PickTextField.h"
+#import "PLMotion.h"
 #import "PLPickerView.h"
 #import "PLProfiles.h"
 #import "UIKit+AFNetworking.h"
@@ -259,16 +260,37 @@ static void *ProgressObserverContext = &ProgressObserverContext;
 }
 
 - (void)setInteractionEnabled:(BOOL)enabled forDownloading:(BOOL)downloading {
-    self.versionTextField.alpha = enabled ? 1 : 0.2;
+    PLMotionAnimate(PLMotionDurationBase, PLMotionCurveInOut, ^{
+        self.versionTextField.alpha = enabled ? 1 : 0.2;
+    }, nil);
     self.versionTextField.enabled = enabled;
-    self.progressViewMain.hidden = enabled;
+
+    // Fade the progress bar in and out instead of snapping its hidden flag
+    if (enabled) {
+        PLMotionAnimate(PLMotionDurationMicro, PLMotionCurveInOut, ^{
+            self.progressViewMain.alpha = 0;
+        }, ^(BOOL finished) {
+            self.progressViewMain.hidden = YES;
+            self.progressViewMain.alpha = 1;
+        });
+    } else if (self.progressViewMain.hidden) {
+        self.progressViewMain.alpha = 0;
+        self.progressViewMain.hidden = NO;
+        PLMotionAnimate(PLMotionDurationMicro, PLMotionCurveInOut, ^{
+            self.progressViewMain.alpha = 1;
+        }, nil);
+    }
+
     self.progressText.text = nil;
     if (downloading) {
+        NSString *installTitle = localize(enabled ? @"Play" : @"Details", nil);
         if(self.buttonInstall) {
-            [self.buttonInstall setTitle:localize(enabled ? @"Play" : @"Details", nil) forState:UIControlStateNormal];
+            PLMotionFadeSwap(self.buttonInstall, ^{
+                [self.buttonInstall setTitle:installTitle forState:UIControlStateNormal];
+            });
             self.buttonInstall.enabled = YES;
         } else {
-            self.buttonInstallItem.title = localize(enabled ? @"Play" : @"Details", nil);
+            PLMotionFadeSwapBarItem(self.buttonInstallItem, installTitle);
             self.buttonInstallItem.enabled = YES;
         }
     } else {
