@@ -289,6 +289,9 @@
 "profile.section.instance" = "Game Instance settings";
 "profile.section.profiles" = "Profiles in this instance";
 "profile.title.create" = "Create new profile";
+"profile.gamedir.title.separate" = "Give this profile its own folder";
+"profile.gamedir.message.separate" = "Worlds, mods and settings currently sitting in the shared folder will move into this profile's own folder. Versions, libraries and assets stay shared, so nothing is downloaded again.";
+"profile.gamedir.error.missing" = "That profile no longer exists.";
 "profile.title.import" = "Import from MultiMC/Prism";
 "profile.title.jarmod" = "Add jar mod (legacy versions)";
 "profile.jarmod.title.pick_version" = "Patch which version?";

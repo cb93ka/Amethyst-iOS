@@ -171,6 +171,7 @@ add_executable(AngelAuraAmethyst
   PLPreferences.m
   PLPrefTableViewController.m
   PLProfiles.m
+  ProfileGameDir.m
   SceneDelegate.m
   SceneExternalDelegate.m
   SurfaceViewController.m

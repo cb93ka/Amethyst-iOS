@@ -7,6 +7,7 @@
 #import "LauncherProfilesViewController.h"
 //#import "NSFileManager+NRFileManager.h"
 #import "PLProfiles.h"
+#import "ProfileGameDir.h"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability-new"
 #import "UIKit+AFNetworking.h"
@@ -321,6 +322,55 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
     }
 
     [self actionEditProfile:PLProfiles.current.profiles.allValues[indexPath.row]];
+}
+
+- (UIContextMenuConfiguration *)tableView:(UITableView *)tableView
+    contextMenuConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath
+                                        point:(CGPoint)point
+{
+    if (indexPath.section != kProfiles) {
+        return nil;
+    }
+
+    NSString *name = PLProfiles.current.profiles.allKeys[indexPath.row];
+    if (![ProfileGameDir profileSharesRoot:PLProfiles.current.profiles[name]]) {
+        // Already has its own folder, so there is nothing to offer
+        return nil;
+    }
+
+    return [UIContextMenuConfiguration configurationWithIdentifier:nil
+        previewProvider:nil
+        actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
+            return [UIMenu menuWithTitle:@"" children:@[[UIAction
+                actionWithTitle:localize(@"profile.gamedir.title.separate", nil)
+                image:[UIImage systemImageNamed:@"folder.badge.plus"]
+                identifier:nil
+                handler:^(UIAction *action) {
+                    [self confirmSeparateProfileNamed:name];
+                }]]];
+        }];
+}
+
+- (void)confirmSeparateProfileNamed:(NSString *)name {
+    UIAlertController *alert = [UIAlertController
+        alertControllerWithTitle:localize(@"profile.gamedir.title.separate", nil)
+        message:localize(@"profile.gamedir.message.separate", nil)
+        preferredStyle:UIAlertControllerStyleAlert];
+
+    [alert addAction:[UIAlertAction actionWithTitle:localize(@"Cancel", nil)
+        style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:localize(@"OK", nil)
+        style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            NSString *error = [ProfileGameDir separateProfileNamed:name];
+            if (error) {
+                showDialog(localize(@"Error", nil), error);
+                return;
+            }
+            [self.tableView reloadData];
+            [self.navigationController performSelector:@selector(reloadProfileList)];
+        }]];
+
+    [self presentViewController:alert animated:YES completion:nil];
 }
 
 #pragma mark Context Menu configuration

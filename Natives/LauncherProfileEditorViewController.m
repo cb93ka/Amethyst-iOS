@@ -4,6 +4,7 @@
 #import "MinecraftResourceUtils.h"
 #import "PickTextField.h"
 #import "PLProfiles.h"
+#import "ProfileGameDir.h"
 #import "UIKit+hook.h"
 #import "ios_uikit_bridge.h"
 #import "utils.h"
@@ -165,6 +166,13 @@
     if ([self.profile[@"name"] length] == 0 && self.oldName.length > 0) {
         // Return to its old name
         self.profile[@"name"] = self.oldName;
+    }
+
+    // A profile created from here starts with a folder of its own, so its
+    // worlds and mods never mix with another version's
+    if (self.oldName.length == 0 && [self.profile[@"gameDir"] length] == 0) {
+        self.profile[@"gameDir"] =
+            [ProfileGameDir relativePathForProfileName:self.profile[@"name"]];
     }
 
     if ([self.oldName isEqualToString:self.profile[@"name"]]) {

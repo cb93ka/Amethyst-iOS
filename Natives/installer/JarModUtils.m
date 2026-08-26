@@ -1,5 +1,6 @@
 #import "JarModUtils.h"
 #import "PLProfiles.h"
+#import "ProfileGameDir.h"
 #import "UnzipKit.h"
 #import "utils.h"
 
@@ -131,7 +132,8 @@
 
     PLProfiles.current.profiles[newId] = @{
         @"name": newId,
-        @"lastVersionId": newId
+        @"lastVersionId": newId,
+        @"gameDir": [ProfileGameDir relativePathForProfileName:newId]
     }.mutableCopy;
     PLProfiles.current.selectedProfileName = newId;
 
