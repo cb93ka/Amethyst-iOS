@@ -124,6 +124,7 @@ add_executable(AngelAuraAmethyst
   external/mach/mach_excServer.c
 
   installer/FabricInstallViewController.m
+  installer/JarModUtils.m
   installer/MMCInstanceImport.m
   installer/ForgeInstallViewController.m
   installer/ModpackInstallViewController.m

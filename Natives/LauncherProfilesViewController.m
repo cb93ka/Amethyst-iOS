@@ -15,6 +15,7 @@
 #import "installer/FabricInstallViewController.h"
 #import "installer/ForgeInstallViewController.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "installer/JarModUtils.h"
 #import "installer/MMCInstanceImport.h"
 #import "installer/ModpackInstallViewController.h"
 #import "ios_uikit_bridge.h"
@@ -25,7 +26,8 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
     kProfiles
 };
 
-@interface LauncherProfilesViewController ()<UIDocumentPickerDelegate> //<UIContextMenuInteractionDelegate>
+@interface LauncherProfilesViewController ()<UIDocumentPickerDelegate>
+@property(nonatomic) NSString *pickerMode; //<UIContextMenuInteractionDelegate>
 
 @property(nonatomic) UIBarButtonItem *createButtonItem;
 @end
@@ -80,6 +82,11 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
             actionWithTitle:localize(@"profile.title.import", nil) image:nil
             identifier:@"import" handler:^(UIAction *action) {
                 [self actionImportInstance];
+            }],
+        [UIAction
+            actionWithTitle:localize(@"profile.title.jarmod", nil) image:nil
+            identifier:@"jarmod" handler:^(UIAction *action) {
+                [self actionAddJarMod];
             }]
     ]];
     self.createButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd menu:createMenu];
@@ -126,17 +133,40 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
 }
 
 - (void)actionImportInstance {
+    self.pickerMode = @"import";
+    [self presentPickerForTypes:@[UTTypeZIP] multiple:NO];
+}
+
+- (void)actionAddJarMod {
+    if (JarModUtils.patchableVersions.count == 0) {
+        showDialog(localize(@"Error", nil), localize(@"profile.jarmod.error.no_versions", nil));
+        return;
+    }
+    self.pickerMode = @"jarmod";
+    [self presentPickerForTypes:@[UTTypeZIP, [UTType typeWithMIMEType:@"application/java-archive"]]
+        multiple:YES];
+}
+
+- (void)presentPickerForTypes:(NSArray<UTType *> *)types multiple:(BOOL)multiple {
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
-        initForOpeningContentTypes:@[UTTypeZIP] asCopy:YES];
+        initForOpeningContentTypes:types asCopy:YES];
+    picker.allowsMultipleSelection = multiple;
     picker.delegate = self;
     picker.modalPresentationStyle = UIModalPresentationFormSheet;
     [self presentViewController:picker animated:YES completion:nil];
 }
 
 - (void)documentPicker:(UIDocumentPickerViewController *)controller
-  didPickDocumentAtURL:(NSURL *)url
+ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls
 {
-    [MMCInstanceImport importFromZipAtPath:url.path
+    if (urls.count == 0) return;
+
+    if ([self.pickerMode isEqualToString:@"jarmod"]) {
+        [self chooseBaseVersionForMods:[urls valueForKey:@"path"]];
+        return;
+    }
+
+    [MMCInstanceImport importFromZipAtPath:urls.firstObject.path
         completion:^(NSString *error, NSString *warning) {
             if (error) {
                 showDialog(localize(@"Error", nil), error);
@@ -146,6 +176,40 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
             [self.navigationController performSelector:@selector(reloadProfileList)];
             showDialog(localize(@"profile.import.title.done", nil),
                 warning ?: localize(@"profile.import.message.done", nil));
+        }];
+}
+
+// Which installed version the mods should be baked into
+- (void)chooseBaseVersionForMods:(NSArray<NSString *> *)modPaths {
+    UIAlertController *sheet = [UIAlertController
+        alertControllerWithTitle:localize(@"profile.jarmod.title.pick_version", nil)
+        message:localize(@"profile.jarmod.message.pick_version", nil)
+        preferredStyle:UIAlertControllerStyleActionSheet];
+
+    for (NSString *versionId in JarModUtils.patchableVersions) {
+        [sheet addAction:[UIAlertAction actionWithTitle:versionId
+            style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+                [self patchVersion:versionId withMods:modPaths];
+            }]];
+    }
+    [sheet addAction:[UIAlertAction actionWithTitle:localize(@"Cancel", nil)
+        style:UIAlertActionStyleCancel handler:nil]];
+
+    sheet.popoverPresentationController.barButtonItem = self.createButtonItem;
+    [self presentViewController:sheet animated:YES completion:nil];
+}
+
+- (void)patchVersion:(NSString *)versionId withMods:(NSArray<NSString *> *)modPaths {
+    [JarModUtils patchVersion:versionId withMods:modPaths
+        completion:^(NSString *error, NSString *newVersionId) {
+            if (error) {
+                showDialog(localize(@"Error", nil), error);
+                return;
+            }
+            [self.tableView reloadData];
+            [self.navigationController performSelector:@selector(reloadProfileList)];
+            showDialog(localize(@"profile.jarmod.title.done", nil),
+                [NSString stringWithFormat:localize(@"profile.jarmod.message.done", nil), newVersionId]);
         }];
 }
 
