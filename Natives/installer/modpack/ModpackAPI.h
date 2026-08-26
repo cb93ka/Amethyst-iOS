@@ -14,6 +14,7 @@
 - (void)loadDetailsOfMod:(NSMutableDictionary *)item;
 
 - (void)installModpackFromDetail:(NSDictionary *)modDetail atIndex:(NSUInteger)selectedVersion;
+- (void)installModFromDetail:(NSDictionary *)modDetail atIndex:(NSUInteger)selectedVersion;
 - (void)downloader:(MinecraftResourceDownloadTask *)downloader submitDownloadTasksFromPackage:(NSString *)packagePath toPath:(NSString *)destPath;
 
 - (id)getEndpoint:(NSString *)endpoint params:(NSDictionary *)params;

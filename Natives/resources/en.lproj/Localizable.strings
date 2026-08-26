@@ -153,6 +153,10 @@
 "preference.detail.cosmetica" = "Enable capes from Cosmetica (previously Arc). For more information please visit https://cosmetica.cc. Requires OptiFine";
 "preference.title.debug_logging" = "Debug logging";
 "preference.detail.debug_logging" = "Logs internal settings and actions to latestlog.txt. This helps the developers find issues easier, but Minecraft may run slower as the logs will be written to more often.";
+"modpack.kind.modpacks" = "Modpacks";
+"modpack.kind.mods" = "Mods";
+"modpack.title.mod_installed" = "Mod installed";
+"modpack.message.mod_installed" = "%@ was added to the mods folder of %@.";
 "preference.title.appicon" = "Set app icon";
 "preference.detail.appicon" = "Allows you to choose between different Home Screen icons for Aurora.";
 "preference.title.appicon-default" = "Aurora night";

@@ -31,6 +31,37 @@
     } error:error];
 }
 
++ (NSDictionary *)loaderInfoForVersionId:(NSString *)versionId {
+    if (versionId.length == 0) return @{};
+
+    NSString *lower = versionId.lowercaseString;
+    NSString *loader = nil;
+    // neoforge has to be tested before forge, since it contains it
+    for (NSString *candidate in @[@"neoforge", @"fabric", @"quilt", @"forge"]) {
+        if ([lower containsString:candidate]) {
+            loader = candidate;
+            break;
+        }
+    }
+
+    // Version ids come in two shapes: "<loader>-loader-<x>-<mc>" and "<mc>-<loader>-<x>"
+    NSString *mcVersion = versionId;
+    NSRange loaderRange = loader ? [lower rangeOfString:loader] : NSMakeRange(NSNotFound, 0);
+    if (loaderRange.location == 0) {
+        NSRange lastDash = [versionId rangeOfString:@"-" options:NSBackwardsSearch];
+        if (lastDash.location != NSNotFound) {
+            mcVersion = [versionId substringFromIndex:NSMaxRange(lastDash)];
+        }
+    } else if (loaderRange.location != NSNotFound) {
+        mcVersion = [versionId substringToIndex:loaderRange.location - 1];
+    }
+
+    NSMutableDictionary *info = [NSMutableDictionary new];
+    if (loader) info[@"loader"] = loader;
+    if (mcVersion.length) info[@"mcVersion"] = mcVersion;
+    return info;
+}
+
 + (NSDictionary *)infoForDependencies:(NSDictionary *)dependency {
     NSMutableDictionary *info = [NSMutableDictionary new];
     NSString *minecraftVersion = dependency[@"minecraft"];

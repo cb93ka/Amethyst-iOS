@@ -7,6 +7,7 @@
 #import "LauncherPreferences.h"
 #import "MinecraftResourceDownloadTask.h"
 #import "MinecraftResourceUtils.h"
+#import "PLProfiles.h"
 #import "ios_uikit_bridge.h"
 #import "utils.h"
 
@@ -279,6 +280,46 @@
         NSString *path = [NSString stringWithFormat:@"%s/custom_gamedir/%@", getenv("POJAV_GAME_DIR"), name];
         [api downloader:self submitDownloadTasksFromPackage:packagePath toPath:path];
     }];
+    [task resume];
+}
+
+- (void)downloadModFromDetail:(NSDictionary *)modDetail atIndex:(NSUInteger)selectedVersion {
+    [self prepareForDownload];
+
+    // Mods belong to whichever profile is selected, which may keep its own game
+    // directory under custom_gamedir rather than sharing the instance root
+    NSString *profileDir = [PLProfiles resolveKeyForCurrentProfile:@"gameDir"];
+    NSString *modsDir = [[[@(getenv("POJAV_GAME_DIR"))
+        stringByAppendingPathComponent:profileDir]
+        stringByAppendingPathComponent:@"mods"] stringByStandardizingPath];
+
+    NSString *fileName = modDetail[@"versionFileNames"][selectedVersion];
+    NSString *sha = modDetail[@"versionHashes"][selectedVersion];
+    if ([sha isKindOfClass:NSNull.class]) {
+        sha = nil;
+    }
+    NSString *profileName = PLProfiles.current.selectedProfileName;
+
+    NSURLSessionDownloadTask *task = [self
+        createDownloadTask:modDetail[@"versionUrls"][selectedVersion]
+        size:[modDetail[@"versionSizes"][selectedVersion] unsignedLongLongValue]
+        sha:sha
+        altName:fileName
+        toPath:[modsDir stringByAppendingPathComponent:fileName]
+        success:^{
+            showDialog(localize(@"modpack.title.mod_installed", nil),
+                [NSString stringWithFormat:localize(@"modpack.message.mod_installed", nil),
+                    fileName, profileName]);
+        }];
+
+    if (!task) {
+        // Either it was already there or access was refused; both already reported
+        return;
+    }
+
+    // Drop the placeholder byte prepareForDownload pushed in
+    self.progress.totalUnitCount--;
+    self.textProgress.totalUnitCount--;
     [task resume];
 }
 

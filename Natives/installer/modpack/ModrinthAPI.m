@@ -17,6 +17,10 @@
     if (searchFilters[@"mcVersion"].length > 0) {
         [facetString appendFormat:@",[\"versions:%@\"]", searchFilters[@"mcVersion"]];
     }
+    // Only mods carry a loader; a modpack brings its own
+    if (!searchFilters[@"isModpack"].boolValue && [searchFilters[@"loader"] length] > 0) {
+        [facetString appendFormat:@",[\"categories:%@\"]", searchFilters[@"loader"]];
+    }
     [facetString appendString:@"]"];
 
     NSDictionary *params = @{
@@ -55,6 +59,7 @@
     NSArray<NSString *> *names = [response valueForKey:@"name"];
     NSMutableArray<NSString *> *mcNames = [NSMutableArray new];
     NSMutableArray<NSString *> *urls = [NSMutableArray new];
+    NSMutableArray<NSString *> *fileNames = [NSMutableArray new];
     NSMutableArray<NSString *> *hashes = [NSMutableArray new];
     NSMutableArray<NSString *> *sizes = [NSMutableArray new];
     [response enumerateObjectsUsingBlock:
@@ -63,6 +68,7 @@
         mcNames[i] = [version[@"game_versions"] firstObject];
         sizes[i] = file[@"size"];
         urls[i] = file[@"url"];
+        fileNames[i] = file[@"filename"] ?: [file[@"url"] lastPathComponent];
         NSDictionary *hashesMap = file[@"hashes"];
         hashes[i] = hashesMap[@"sha1"] ?: [NSNull null];
     }];
@@ -70,6 +76,7 @@
     item[@"mcVersionNames"] = mcNames;
     item[@"versionSizes"] = sizes;
     item[@"versionUrls"] = urls;
+    item[@"versionFileNames"] = fileNames;
     item[@"versionHashes"] = hashes;
     item[@"versionDetailsLoaded"] = @(YES);
 }

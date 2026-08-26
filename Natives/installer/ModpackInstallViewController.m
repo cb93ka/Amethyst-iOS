@@ -4,6 +4,8 @@
 #import "UIKit+AFNetworking.h"
 #import "UIKit+hook.h"
 #import "WFWorkflowProgressView.h"
+#import "PLProfiles.h"
+#import "modpack/ModpackUtils.h"
 #import "modpack/ModrinthAPI.h"
 #import "config.h"
 #import "ios_uikit_bridge.h"
@@ -20,6 +22,7 @@
 @property(nonatomic) NSMutableArray *list;
 @property(nonatomic) NSMutableDictionary *filters;
 @property ModrinthAPI *modrinth;
+@property(nonatomic) NSString *prompt;
 @end
 
 @implementation ModpackInstallViewController
@@ -36,8 +39,18 @@
     self.filters = @{
         @"isModpack": @(YES),
         @"name": @" "
-        // mcVersion
+        // mcVersion, loader
     }.mutableCopy;
+
+    UISegmentedControl *kindControl = [[UISegmentedControl alloc] initWithItems:@[
+        localize(@"modpack.kind.modpacks", nil),
+        localize(@"modpack.kind.mods", nil)
+    ]];
+    kindControl.selectedSegmentIndex = 0;
+    [kindControl addTarget:self action:@selector(changeKind:)
+        forControlEvents:UIControlEventValueChanged];
+    self.navigationItem.titleView = kindControl;
+
     [self updateSearchResults];
 }
 
@@ -61,6 +74,30 @@
             }
         });
     });
+}
+
+- (void)changeKind:(UISegmentedControl *)sender {
+    BOOL isModpack = sender.selectedSegmentIndex == 0;
+    self.filters[@"isModpack"] = @(isModpack);
+
+    if (isModpack) {
+        // A modpack carries its own loader and version, so nothing to narrow by
+        [self.filters removeObjectForKey:@"mcVersion"];
+        [self.filters removeObjectForKey:@"loader"];
+    } else {
+        // A mod has to match the profile it is going into, or it simply will not load
+        NSDictionary *info = [ModpackUtils loaderInfoForVersionId:
+            PLProfiles.current.selectedProfile[@"lastVersionId"]];
+        self.filters[@"mcVersion"] = info[@"mcVersion"] ?: @"";
+        self.filters[@"loader"] = info[@"loader"] ?: @"";
+        self.prompt = info[@"loader"] ? [NSString stringWithFormat:@"%@ %@",
+            info[@"loader"].capitalizedString, info[@"mcVersion"]] : nil;
+    }
+    self.navigationItem.prompt = isModpack ? nil : self.prompt;
+
+    // The name is unchanged, so nudge it to get past the no-op guard
+    self.filters[@"name"] = @" ";
+    [self updateSearchResults];
 }
 
 - (void)updateSearchResults {
@@ -157,7 +194,11 @@
             [self actionClose];
             NSString *tmpIconPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"icon.png"];
                 [UIImagePNGRepresentation([cell.imageView.image _imageWithSize:CGSizeMake(40, 40)]) writeToFile:tmpIconPath atomically:YES];
-            [self.modrinth installModpackFromDetail:self.list[indexPath.row] atIndex:i];
+            if ([self.filters[@"isModpack"] boolValue]) {
+                [self.modrinth installModpackFromDetail:self.list[indexPath.row] atIndex:i];
+            } else {
+                [self.modrinth installModFromDetail:self.list[indexPath.row] atIndex:i];
+            }
         }]];
     }];
 

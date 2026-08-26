@@ -45,6 +45,13 @@
     return result;
 }
 
+- (void)installModFromDetail:(NSDictionary *)modDetail atIndex:(NSUInteger)selectedVersion {
+    [NSNotificationCenter.defaultCenter
+        postNotificationName:@"InstallMod"
+        object:self
+        userInfo:@{@"detail": modDetail, @"index": @(selectedVersion)}];
+}
+
 - (void)installModpackFromDetail:(NSDictionary *)modDetail atIndex:(NSUInteger)selectedVersion {
     // Pass details to LauncherNavigationController
     NSDictionary* userInfo = @{
