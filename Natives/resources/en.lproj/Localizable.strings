@@ -287,6 +287,14 @@
 "profile.section.instance" = "Game Instance settings";
 "profile.section.profiles" = "Profiles in this instance";
 "profile.title.create" = "Create new profile";
+"profile.title.import" = "Import from MultiMC/Prism";
+"profile.import.title.done" = "Instance imported";
+"profile.import.message.done" = "The instance is ready to play.";
+"profile.import.error.not_instance" = "This zip does not contain mmc-pack.json, so it is not a MultiMC or Prism instance export.";
+"profile.import.error.no_version" = "The instance does not declare a Minecraft version.";
+"profile.import.error.no_gamedir" = "The instance has no .minecraft folder to import.";
+"profile.import.warn.loader_offline" = "The instance was imported, but its loader profile could not be downloaded. Reinstall the loader once you are back online.";
+"profile.import.warn.forge" = "The instance was imported. Forge cannot be installed automatically, so install %@ yourself and the profile will pick it up.";
 "profile.title.separate_preference" = "Isolate settings";
 "profile.detail.separate_preference" = "Enable this option to isolate any changes made in settings. Doing a Reset will restore to global settings instead of default settings.";
 "profile.title.install_fabric_quilt" = "Install Fabric/Quilt";

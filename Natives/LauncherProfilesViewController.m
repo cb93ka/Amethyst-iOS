@@ -14,6 +14,8 @@
 #import "UIKit+hook.h"
 #import "installer/FabricInstallViewController.h"
 #import "installer/ForgeInstallViewController.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
+#import "installer/MMCInstanceImport.h"
 #import "installer/ModpackInstallViewController.h"
 #import "ios_uikit_bridge.h"
 #import "utils.h"
@@ -23,7 +25,7 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
     kProfiles
 };
 
-@interface LauncherProfilesViewController () //<UIContextMenuInteractionDelegate>
+@interface LauncherProfilesViewController ()<UIDocumentPickerDelegate> //<UIContextMenuInteractionDelegate>
 
 @property(nonatomic) UIBarButtonItem *createButtonItem;
 @end
@@ -73,6 +75,11 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
             actionWithTitle:@"Modpack" image:nil
             identifier:@"modpack" handler:^(UIAction *action) {
                 [self actionCreateModpackProfile];
+            }],
+        [UIAction
+            actionWithTitle:localize(@"profile.title.import", nil) image:nil
+            identifier:@"import" handler:^(UIAction *action) {
+                [self actionImportInstance];
             }]
     ]];
     self.createButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd menu:createMenu];
@@ -116,6 +123,30 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
 - (void)actionCreateModpackProfile {
     ModpackInstallViewController *vc = [ModpackInstallViewController new];
     [self presentNavigatedViewController:vc];
+}
+
+- (void)actionImportInstance {
+    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
+        initForOpeningContentTypes:@[UTTypeZIP] asCopy:YES];
+    picker.delegate = self;
+    picker.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:picker animated:YES completion:nil];
+}
+
+- (void)documentPicker:(UIDocumentPickerViewController *)controller
+  didPickDocumentAtURL:(NSURL *)url
+{
+    [MMCInstanceImport importFromZipAtPath:url.path
+        completion:^(NSString *error, NSString *warning) {
+            if (error) {
+                showDialog(localize(@"Error", nil), error);
+                return;
+            }
+            [self.tableView reloadData];
+            [self.navigationController performSelector:@selector(reloadProfileList)];
+            showDialog(localize(@"profile.import.title.done", nil),
+                warning ?: localize(@"profile.import.message.done", nil));
+        }];
 }
 
 - (void)actionEditProfile:(NSDictionary *)profile {

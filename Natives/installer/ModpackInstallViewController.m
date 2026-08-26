@@ -88,10 +88,12 @@
         // A mod has to match the profile it is going into, or it simply will not load
         NSDictionary *info = [ModpackUtils loaderInfoForVersionId:
             PLProfiles.current.selectedProfile[@"lastVersionId"]];
-        self.filters[@"mcVersion"] = info[@"mcVersion"] ?: @"";
-        self.filters[@"loader"] = info[@"loader"] ?: @"";
-        self.prompt = info[@"loader"] ? [NSString stringWithFormat:@"%@ %@",
-            info[@"loader"].capitalizedString, info[@"mcVersion"]] : nil;
+        NSString *loader = info[@"loader"];
+        NSString *mcVersion = info[@"mcVersion"];
+        self.filters[@"mcVersion"] = mcVersion ?: @"";
+        self.filters[@"loader"] = loader ?: @"";
+        self.prompt = loader ? [NSString stringWithFormat:@"%@ %@",
+            loader.capitalizedString, mcVersion] : nil;
     }
     self.navigationItem.prompt = isModpack ? nil : self.prompt;
 
