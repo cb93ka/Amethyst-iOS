@@ -8,6 +8,8 @@
 @property(nonatomic) NSString *baseURL;
 @property(nonatomic) NSError *lastError;
 @property(nonatomic) BOOL reachedLastPage;
+// Sent with every request; CurseForge authenticates through one
+@property(nonatomic) NSDictionary *headers;
 
 - (instancetype)initWithURL:(NSString *)url;
 - (NSMutableArray *)searchModWithFilters:(NSDictionary *)filters previousPageResult:(NSMutableArray *)prevResult;
@@ -18,5 +20,6 @@
 - (void)downloader:(MinecraftResourceDownloadTask *)downloader submitDownloadTasksFromPackage:(NSString *)packagePath toPath:(NSString *)destPath;
 
 - (id)getEndpoint:(NSString *)endpoint params:(NSDictionary *)params;
+- (id)postEndpoint:(NSString *)endpoint body:(NSDictionary *)body;
 
 @end

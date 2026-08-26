@@ -19,5 +19,8 @@
 
 #ifndef CONFIG_CURSEFORGE_API_KEY 
 # define CONFIG_CURSEFORGE_API_KEY nil
+#else
+// Lets the code offer CurseForge only when a key was actually supplied
+# define CONFIG_HAS_CURSEFORGE_API_KEY 1
 #endif
 

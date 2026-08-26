@@ -6,6 +6,7 @@
 #import "WFWorkflowProgressView.h"
 #import "PLProfiles.h"
 #import "modpack/ModpackUtils.h"
+#import "modpack/CurseForgeAPI.h"
 #import "modpack/ModrinthAPI.h"
 #import "config.h"
 #import "ios_uikit_bridge.h"
@@ -16,12 +17,14 @@
 #define kCurseForgeClassIDModpack 4471
 #define kCurseForgeClassIDMod 6
 
-@interface ModpackInstallViewController()<UIContextMenuInteractionDelegate>
+@interface ModpackInstallViewController()<UIContextMenuInteractionDelegate, UISearchBarDelegate>
 @property(nonatomic) UISearchController *searchController;
 @property(nonatomic) UIMenu *currentMenu;
 @property(nonatomic) NSMutableArray *list;
 @property(nonatomic) NSMutableDictionary *filters;
 @property ModrinthAPI *modrinth;
+@property CurseForgeAPI *curseforge;
+@property(nonatomic, weak) ModpackAPI *source;
 @property(nonatomic) NSString *prompt;
 @end
 
@@ -36,6 +39,12 @@
     self.searchController.obscuresBackgroundDuringPresentation = NO;
     self.navigationItem.searchController = self.searchController;
     self.modrinth = [ModrinthAPI new];
+    self.source = self.modrinth;
+    if (CurseForgeAPI.isAvailable) {
+        self.curseforge = [CurseForgeAPI new];
+        self.searchController.searchBar.scopeButtonTitles = @[@"Modrinth", @"CurseForge"];
+        self.searchController.searchBar.delegate = self;
+    }
     self.filters = @{
         @"isModpack": @(YES),
         @"name": @" "
@@ -63,17 +72,23 @@
     [self switchToLoadingState];
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         self.filters[@"name"] = name;
-        self.list = [self.modrinth searchModWithFilters:self.filters previousPageResult:prevList ? self.list : nil];
+        self.list = [self.source searchModWithFilters:self.filters previousPageResult:prevList ? self.list : nil];
         dispatch_async(dispatch_get_main_queue(), ^{
             if (self.list) {
                 [self switchToReadyState];
                 [self.tableView reloadData];
             } else {
-                showDialog(localize(@"Error", nil), self.modrinth.lastError.localizedDescription);
+                showDialog(localize(@"Error", nil), self.source.lastError.localizedDescription);
                 [self actionClose];
             }
         });
     });
+}
+
+- (void)searchBar:(UISearchBar *)searchBar selectedScopeButtonIndexDidChange:(NSInteger)scope {
+    self.source = scope == 0 ? (ModpackAPI *)self.modrinth : (ModpackAPI *)self.curseforge;
+    self.filters[@"name"] = @" ";
+    [self updateSearchResults];
 }
 
 - (void)changeKind:(UISegmentedControl *)sender {
@@ -171,7 +186,7 @@
     UIImage *fallbackImage = [UIImage imageNamed:@"DefaultProfile"];
     [cell.imageView setImageWithURL:[NSURL URLWithString:item[@"imageUrl"]] placeholderImage:fallbackImage];
 
-    if (!self.modrinth.reachedLastPage && indexPath.row == self.list.count-1) {
+    if (!self.source.reachedLastPage && indexPath.row == self.list.count-1) {
         [self loadSearchResultsWithPrevList:YES];
     }
 
@@ -197,9 +212,9 @@
             NSString *tmpIconPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"icon.png"];
                 [UIImagePNGRepresentation([cell.imageView.image _imageWithSize:CGSizeMake(40, 40)]) writeToFile:tmpIconPath atomically:YES];
             if ([self.filters[@"isModpack"] boolValue]) {
-                [self.modrinth installModpackFromDetail:self.list[indexPath.row] atIndex:i];
+                [self.source installModpackFromDetail:self.list[indexPath.row] atIndex:i];
             } else {
-                [self.modrinth installModFromDetail:self.list[indexPath.row] atIndex:i];
+                [self.source installModFromDetail:self.list[indexPath.row] atIndex:i];
             }
         }]];
     }];
@@ -219,13 +234,13 @@
     [tableView deselectRowAtIndexPath:indexPath animated:NO];
     [self switchToLoadingState];
 dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        [self.modrinth loadDetailsOfMod:self.list[indexPath.row]];
+        [self.source loadDetailsOfMod:self.list[indexPath.row]];
         dispatch_async(dispatch_get_main_queue(), ^{
             [self switchToReadyState];
             if ([item[@"versionDetailsLoaded"] boolValue]) {
                 [self showDetails:item atIndexPath:indexPath];
             } else {
-                showDialog(localize(@"Error", nil), self.modrinth.lastError.localizedDescription);
+                showDialog(localize(@"Error", nil), self.source.lastError.localizedDescription);
             }
         });
     });

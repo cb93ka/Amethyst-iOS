@@ -154,6 +154,8 @@
 "preference.title.debug_logging" = "Debug logging";
 "preference.detail.debug_logging" = "Logs internal settings and actions to latestlog.txt. This helps the developers find issues easier, but Minecraft may run slower as the logs will be written to more often.";
 "modpack.kind.modpacks" = "Modpacks";
+"modpack.title.blocked_files" = "Some mods could not be downloaded";
+"modpack.message.blocked_files" = "%lu of the pack's mods have third-party downloads disabled by their authors, so they were skipped. Download them from CurseForge yourself and drop them into the mods folder:\n\n%@";
 "modpack.kind.mods" = "Mods";
 "modpack.title.mod_installed" = "Mod installed";
 "modpack.message.mod_installed" = "%@ was added to the mods folder of %@.";

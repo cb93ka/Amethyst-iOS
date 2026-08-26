@@ -44,13 +44,18 @@ jobs:
           echo "gmake:  $(gmake --version | head -1)"
 
       - name: Build ipa and tipa
+        env:
+          # Optional. Without it the launcher just does not offer CurseForge.
+          CURSEFORGE_API_KEY: ${{ secrets.CURSEFORGE_API_KEY }}
         run: |
           # The Makefile insists on JDK 8; point it straight at the one
           # setup-java installed instead of relying on java_home lookup
           gmake -j$(sysctl -n hw.ncpu) package \
-            PLATFORM=2 BOOTJDK="$JAVA_HOME/bin"
+            PLATFORM=2 BOOTJDK="$JAVA_HOME/bin" \
+            CURSEFORGE_API_KEY="$CURSEFORGE_API_KEY"
           gmake -j$(sysctl -n hw.ncpu) package \
-            PLATFORM=2 BOOTJDK="$JAVA_HOME/bin" TROLLSTORE_JIT_ENT=1
+            PLATFORM=2 BOOTJDK="$JAVA_HOME/bin" TROLLSTORE_JIT_ENT=1 \
+            CURSEFORGE_API_KEY="$CURSEFORGE_API_KEY"
 
       - name: List artifacts
         if: always()

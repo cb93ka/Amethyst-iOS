@@ -32,7 +32,7 @@
     dispatch_group_enter(group);
     NSString *url = [self.baseURL stringByAppendingPathComponent:endpoint];
     AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
-    [manager GET:url parameters:params headers:nil progress:nil
+    [manager GET:url parameters:params headers:self.headers progress:nil
     success:^(NSURLSessionTask *task, id obj) {
         result = obj;
         dispatch_group_leave(group);
@@ -50,6 +50,28 @@
         postNotificationName:@"InstallMod"
         object:self
         userInfo:@{@"detail": modDetail, @"index": @(selectedVersion)}];
+}
+
+// Some endpoints only answer to POST; resolving a pack's files in one call
+// rather than one call per mod is worth the extra method
+- (id)postEndpoint:(NSString *)endpoint body:(NSDictionary *)body {
+    __block id result;
+    dispatch_group_t group = dispatch_group_create();
+    dispatch_group_enter(group);
+
+    NSString *url = [self.baseURL stringByAppendingPathComponent:endpoint];
+    AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+    manager.requestSerializer = AFJSONRequestSerializer.serializer;
+    [manager POST:url parameters:body headers:self.headers progress:nil
+    success:^(NSURLSessionTask *task, id obj) {
+        result = obj;
+        dispatch_group_leave(group);
+    } failure:^(NSURLSessionTask *operation, NSError *error) {
+        self.lastError = error;
+        dispatch_group_leave(group);
+    }];
+    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+    return result;
 }
 
 - (void)installModpackFromDetail:(NSDictionary *)modDetail atIndex:(NSUInteger)selectedVersion {

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.6)
 project(AngelAuraAmethyst)
 
+# An empty value leaves CONFIG_CURSEFORGE_API_KEY undefined, which is what the
+# code checks for
 configure_file(${CMAKE_CURRENT_LIST_DIR}/config.h.in ${CMAKE_CURRENT_LIST_DIR}/config.h)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -target arm64-apple-ios -mcpu=apple-a8 -fcommon -fobjc-arc -ObjC -F'${CMAKE_OSX_SYSROOT}/System/Cryptexes/OS/System/Library/Frameworks'")
