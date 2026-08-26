@@ -1,5 +1,6 @@
 #import "authenticator/BaseAuthenticator.h"
 #import "AccountListViewController.h"
+#import "AuroraMarkView.h"
 #import "AFNetworking.h"
 #import "ALTServerConnection.h"
 #import "LauncherNavigationController.h"
@@ -55,10 +56,9 @@
     
     self.isInitialVc = YES;
     
-    UIImageView *titleView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"AppLogo"]];
-    [titleView setContentMode:UIViewContentModeScaleAspectFit];
-    self.navigationItem.titleView = titleView;
+    UIView *titleView = [[AuroraMarkView alloc] initWithFrame:CGRectZero];
     [titleView sizeToFit];
+    self.navigationItem.titleView = titleView;
     
     self.options = @[
         [LauncherMenuCustomItem vcClass:LauncherNewsViewController.class],

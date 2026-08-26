@@ -138,6 +138,7 @@ add_executable(AngelAuraAmethyst
 
   AccountListViewController.m
   AppDelegate.m
+  AuroraMarkView.m
   CustomControlsViewController.m
   CustomControlsViewController+UndoManager.m
   DownloadProgressViewController.m
@@ -162,6 +163,7 @@ add_executable(AngelAuraAmethyst
   PLLogOutputView.m
   PLMotion.m
   PLPickerView.m
+  PLTheme.m
   PLPreferences.m
   PLPrefTableViewController.m
   PLProfiles.m

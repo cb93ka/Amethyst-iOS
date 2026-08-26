@@ -12,6 +12,7 @@
 #import "MinecraftResourceUtils.h"
 #import "PickTextField.h"
 #import "PLMotion.h"
+#import "PLTheme.h"
 #import "PLPickerView.h"
 #import "PLProfiles.h"
 #import "UIKit+AFNetworking.h"
@@ -88,7 +89,7 @@ static void *ProgressObserverContext = &ProgressObserverContext;
                                                                  action:@selector(performInstallOrShowDetails:)];
         self.buttonInstallItem.enabled = NO;
         dispatch_async(dispatch_get_main_queue(), ^{
-            self.buttonInstallItem.buttonGlassView.backgroundColor = [UIColor colorWithRed:121/255.0 green:56/255.0 blue:162/255.0 alpha:0.5];
+            self.buttonInstallItem.buttonGlassView.backgroundColor = [PLThemeTint() colorWithAlphaComponent:0.5];
         });
         [textFieldContainer addSubview:self.versionTextField];
         UIBarButtonItem *textFieldItem = [[UIBarButtonItem alloc] initWithCustomView:textFieldContainer];
@@ -101,10 +102,16 @@ static void *ProgressObserverContext = &ProgressObserverContext;
         setButtonPointerInteraction(self.buttonInstall);
         [self.buttonInstall setTitle:localize(@"Play", nil) forState:UIControlStateNormal];
         self.buttonInstall.autoresizingMask = AUTORESIZE_MASKS;
-        self.buttonInstall.backgroundColor = [UIColor colorWithRed:121/255.0 green:56/255.0 blue:162/255.0 alpha:1.0];
+        // A stretchable gradient image avoids having to resize a gradient layer
+        [self.buttonInstall setBackgroundImage:
+            [PLThemeAuroraImage(CGSizeMake(96, 1))
+                resizableImageWithCapInsets:UIEdgeInsetsZero
+                               resizingMode:UIImageResizingModeStretch]
+            forState:UIControlStateNormal];
+        self.buttonInstall.clipsToBounds = YES;
         self.buttonInstall.layer.cornerRadius = 5;
         self.buttonInstall.frame = CGRectMake(self.toolbar.frame.size.width * 0.8, 4, self.toolbar.frame.size.width * 0.2, self.toolbar.frame.size.height - 8);
-        self.buttonInstall.tintColor = UIColor.whiteColor;
+        self.buttonInstall.tintColor = PLThemeOnAuroraColor();
         self.buttonInstall.enabled = NO;
         [self.buttonInstall addTarget:self action:@selector(performInstallOrShowDetails:) forControlEvents:UIControlEventPrimaryActionTriggered];
         [targetToolbar addSubview:self.progressViewMain];
