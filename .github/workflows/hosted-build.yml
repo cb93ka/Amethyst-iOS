@@ -14,7 +14,9 @@ on:
 jobs:
   build:
     name: Build iOS package
-    runs-on: macos-15
+    # Amethyst uses iOS 26 APIs (UIBarButtonItem.sharesBackground and friends),
+    # so it needs an image whose default Xcode ships the iOS 26 SDK
+    runs-on: macos-26
 
     steps:
       - name: Checkout repository
