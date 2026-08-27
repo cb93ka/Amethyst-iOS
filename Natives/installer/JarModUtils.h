@@ -1,28 +1,36 @@
 #import <Foundation/Foundation.h>
 
 /**
- * Installs mods the way versions that predate a mod loader need them: by
- * patching the client jar itself, as MultiMC does.
+ * Jar mods, kept the way MultiMC keeps them.
  *
- * Files from the mods replace the client's own, and META-INF is dropped. The
- * client carries a signature over its classes there, and refuses to start once
- * those classes no longer match it.
+ * Versions old enough to have no mod loader can only take a mod by having it
+ * merged into the client jar. Merging is one-way, so the mods themselves are
+ * kept in the profile, under jarmods/, and the patched version is rebuilt from
+ * the untouched base plus whatever is currently switched on. That is what makes
+ * a mod possible to switch off again, or remove.
  *
- * The original version is left untouched; the patched jar becomes a version of
- * its own, so the same base can be patched more than once.
+ * The profile remembers its base in jarmodBase, so rebuilding never patches an
+ * already patched jar.
  */
 @interface JarModUtils : NSObject
 
-// Locally installed versions that have a client jar available to patch
-+ (NSArray<NSString *> *)patchableVersions;
+// Where a profile keeps the jar mods it was given
++ (NSString *)jarModsPathForProfile:(NSString *)profileName;
+
+// Copies the files in, then rebuilds. Calls back on the main thread.
++ (void)addMods:(NSArray<NSString *> *)modPaths
+      toProfile:(NSString *)profileName
+     completion:(void (^)(NSString *error))completion;
+
+// Rebuilds after a mod was switched or removed. Calls back on the main thread.
++ (void)rebuildProfile:(NSString *)profileName
+            completion:(void (^)(NSString *error))completion;
 
 /**
- * Runs off the main thread and calls back on it with nil on success, or a
- * message explaining what stopped it. On success the new version id is handed
- * back for the caller to point a profile at.
+ * Same, on the calling thread, for use just before a launch so the version
+ * about to run is the current one. Returns nil when there was nothing to do,
+ * or when it succeeded.
  */
-+ (void)patchVersion:(NSString *)baseVersionId
-            withMods:(NSArray<NSString *> *)modPaths
-          completion:(void (^)(NSString *error, NSString *newVersionId))completion;
++ (NSString *)rebuildProfileNow:(NSString *)profileName;
 
 @end

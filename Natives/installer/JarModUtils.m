@@ -1,6 +1,10 @@
 #import "JarModUtils.h"
+#import "PLProfiles.h"
 #import "UnzipKit.h"
 #import "utils.h"
+
+// Same convention the mods folder uses, so one rule covers both
+static NSString *const kDisabledSuffix = @".disabled";
 
 @implementation JarModUtils
 
@@ -8,21 +12,27 @@
     return [NSString stringWithFormat:@"%s/versions", getenv("POJAV_GAME_DIR")];
 }
 
-+ (NSArray<NSString *> *)patchableVersions {
-    NSString *root = self.versionsDirectory;
-    NSMutableArray<NSString *> *versions = [[NSMutableArray alloc] init];
-
-    for (NSString *versionId in [NSFileManager.defaultManager
-            contentsOfDirectoryAtPath:root error:nil]) {
-        NSString *jar = [NSString stringWithFormat:@"%1$@/%2$@/%2$@.jar", root, versionId];
-        if ([NSFileManager.defaultManager fileExistsAtPath:jar]) {
-            [versions addObject:versionId];
-        }
-    }
-    return [versions sortedArrayUsingSelector:@selector(localizedStandardCompare:)];
++ (NSString *)jarModsPathForProfile:(NSString *)profileName {
+    NSMutableDictionary *profile = PLProfiles.current.profiles[profileName];
+    NSString *gameDir = [profile[@"gameDir"] length] > 0 ? profile[@"gameDir"] : @".";
+    return [[[@(getenv("POJAV_GAME_DIR"))
+        stringByAppendingPathComponent:gameDir]
+        stringByAppendingPathComponent:@"jarmods"] stringByStandardizingPath];
 }
 
-// Reads every mod, last one winning where two touch the same file
++ (NSArray<NSString *> *)enabledModsAt:(NSString *)path {
+    NSMutableArray<NSString *> *enabled = [[NSMutableArray alloc] init];
+    for (NSString *name in [[NSFileManager.defaultManager contentsOfDirectoryAtPath:path error:nil]
+            sortedArrayUsingSelector:@selector(localizedStandardCompare:)]) {
+        if ([name hasSuffix:kDisabledSuffix] || [name hasPrefix:@"."]) {
+            continue;
+        }
+        [enabled addObject:[path stringByAppendingPathComponent:name]];
+    }
+    return enabled;
+}
+
+// Reads every mod, the last one winning where two touch the same file
 + (NSDictionary<NSString *, NSData *> *)entriesFromMods:(NSArray<NSString *> *)modPaths
                                                   error:(NSString **)outError
 {
@@ -51,14 +61,23 @@
     return entries;
 }
 
-+ (NSString *)runPatch:(NSString *)baseVersionId
-                  mods:(NSArray<NSString *> *)modPaths
-             newVersion:(NSString **)outVersionId
++ (NSString *)derivedIdForBase:(NSString *)base profile:(NSString *)profileName {
+    NSCharacterSet *illegal = [NSCharacterSet characterSetWithCharactersInString:@"/\\: "];
+    NSString *safe = [[profileName componentsSeparatedByCharactersInSet:illegal]
+        componentsJoinedByString:@"-"];
+    return [NSString stringWithFormat:@"%@-jarmod-%@", base, safe];
+}
+
+#pragma mark - Building
+
++ (NSString *)buildVersion:(NSString *)newId
+                  fromBase:(NSString *)base
+                      mods:(NSArray<NSString *> *)modPaths
 {
     NSFileManager *fm = NSFileManager.defaultManager;
     NSString *root = self.versionsDirectory;
-    NSString *baseJar = [NSString stringWithFormat:@"%1$@/%2$@/%2$@.jar", root, baseVersionId];
-    NSString *baseJson = [NSString stringWithFormat:@"%1$@/%2$@/%2$@.json", root, baseVersionId];
+    NSString *baseJar = [NSString stringWithFormat:@"%1$@/%2$@/%2$@.jar", root, base];
+    NSString *baseJson = [NSString stringWithFormat:@"%1$@/%2$@/%2$@.json", root, base];
 
     if (![fm fileExistsAtPath:baseJar]) {
         return localize(@"profile.jarmod.error.no_jar", nil);
@@ -69,17 +88,12 @@
     if (!modEntries) {
         return modError;
     }
-    if (modEntries.count == 0) {
-        return localize(@"profile.jarmod.error.empty_mod", nil);
-    }
 
-    // Keep the base version intact by patching a copy under a new id
-    NSString *newId = [baseVersionId stringByAppendingString:@"-jarmod"];
-    for (int n = 2; [fm fileExistsAtPath:[root stringByAppendingPathComponent:newId]]; n++) {
-        newId = [NSString stringWithFormat:@"%@-jarmod-%d", baseVersionId, n];
-    }
-
+    // Always start from the untouched base, so switching a mod off really
+    // removes it rather than leaving it merged in from a previous build
     NSString *newDir = [root stringByAppendingPathComponent:newId];
+    [fm removeItemAtPath:newDir error:nil];
+
     NSError *error;
     if (![fm createDirectoryAtPath:newDir withIntermediateDirectories:YES attributes:nil error:&error]) {
         return error.localizedDescription;
@@ -97,6 +111,8 @@
         return error.localizedDescription;
     }
 
+    // The client carries a signature over its classes there and refuses to
+    // start once those classes no longer match it
     for (NSString *entry in [jar listFilenames:&error]) {
         if ([entry hasPrefix:@"META-INF/"] && ![jar deleteFile:entry error:&error]) {
             return error.localizedDescription;
@@ -112,8 +128,8 @@
         }
     }
 
-    // A self-contained manifest: inheriting would let the downloader restore the
-    // stock client jar over the patched one on the next launch
+    // A self-contained manifest: inheriting would keep the base version's client
+    // download, and the downloader would restore the stock jar over this one
     NSMutableDictionary *json = parseJSONFromFile(baseJson);
     if (json[@"NSErrorObject"]) {
         return [json[@"NSErrorObject"] localizedDescription];
@@ -124,23 +140,84 @@
 
     NSError *saveError = saveJSONToFile(json, [newDir stringByAppendingPathComponent:
         [newId stringByAppendingPathExtension:@"json"]]);
-    if (saveError) {
-        return saveError.localizedDescription;
+    return saveError.localizedDescription;
+}
+
++ (NSString *)rebuildProfileNow:(NSString *)profileName {
+    NSMutableDictionary *profile = PLProfiles.current.profiles[profileName];
+    if (!profile) {
+        return nil;
     }
 
-    *outVersionId = newId;
+    NSString *base = profile[@"jarmodBase"];
+    if (base.length == 0) {
+        base = profile[@"lastVersionId"];
+    }
+    if (base.length == 0) {
+        return nil;
+    }
+
+    NSArray<NSString *> *mods = [self enabledModsAt:[self jarModsPathForProfile:profileName]];
+    NSString *derived = [self derivedIdForBase:base profile:profileName];
+
+    if (mods.count == 0) {
+        // Nothing switched on: the profile goes back to the version it started
+        // from, and the patched one is of no further use
+        [NSFileManager.defaultManager removeItemAtPath:
+            [self.versionsDirectory stringByAppendingPathComponent:derived] error:nil];
+        profile[@"lastVersionId"] = base;
+        [profile removeObjectForKey:@"jarmodBase"];
+        [PLProfiles.current save];
+        return nil;
+    }
+
+    NSString *error = [self buildVersion:derived fromBase:base mods:mods];
+    if (error) {
+        return error;
+    }
+
+    profile[@"jarmodBase"] = base;
+    profile[@"lastVersionId"] = derived;
+    [PLProfiles.current save];
     return nil;
 }
 
-+ (void)patchVersion:(NSString *)baseVersionId
-            withMods:(NSArray<NSString *> *)modPaths
-          completion:(void (^)(NSString *error, NSString *newVersionId))completion
+#pragma mark - Entry points
+
++ (void)rebuildProfile:(NSString *)profileName completion:(void (^)(NSString *error))completion {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSString *error = [self rebuildProfileNow:profileName];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(error);
+        });
+    });
+}
+
++ (void)addMods:(NSArray<NSString *> *)modPaths
+      toProfile:(NSString *)profileName
+     completion:(void (^)(NSString *error))completion
 {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        NSString *newId = nil;
-        NSString *error = [self runPatch:baseVersionId mods:modPaths newVersion:&newId];
+        NSFileManager *fm = NSFileManager.defaultManager;
+        NSString *destination = [self jarModsPathForProfile:profileName];
+        [fm createDirectoryAtPath:destination withIntermediateDirectories:YES
+            attributes:nil error:nil];
+
+        NSString *failure = nil;
+        for (NSString *path in modPaths) {
+            NSString *target = [destination stringByAppendingPathComponent:path.lastPathComponent];
+            [fm removeItemAtPath:target error:nil];
+
+            NSError *error;
+            if (![fm copyItemAtPath:path toPath:target error:&error]) {
+                failure = error.localizedDescription;
+                break;
+            }
+        }
+
+        NSString *error = failure ?: [self rebuildProfileNow:profileName];
         dispatch_async(dispatch_get_main_queue(), ^{
-            completion(error, newId);
+            completion(error);
         });
     });
 }

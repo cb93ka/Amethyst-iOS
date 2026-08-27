@@ -227,19 +227,18 @@
 {
     if (urls.count == 0) return;
 
-    NSString *baseVersion = self.profile[@"lastVersionId"];
-    [JarModUtils patchVersion:baseVersion withMods:[urls valueForKey:@"path"]
-        completion:^(NSString *error, NSString *newVersionId) {
+    [JarModUtils addMods:[urls valueForKey:@"path"] toProfile:self.oldName
+        completion:^(NSString *error) {
             if (error) {
                 showDialog(localize(@"Error", nil), error);
                 return;
             }
-            // Point this profile at the patched version rather than making a new one
-            self.profile[@"lastVersionId"] = newVersionId;
+            // The rebuild repoints the profile, so pick the change back up
+            self.profile[@"lastVersionId"] =
+                PLProfiles.current.profiles[self.oldName][@"lastVersionId"];
             [self.tableView reloadData];
             showDialog(localize(@"profile.jarmod.title.done", nil),
-                [NSString stringWithFormat:localize(@"profile.jarmod.message.done", nil),
-                    newVersionId]);
+                localize(@"profile.jarmod.message.done", nil));
         }];
 }
 

@@ -15,6 +15,7 @@
 #import "PLTheme.h"
 #import "PLPickerView.h"
 #import "PLProfiles.h"
+#import "installer/JarModUtils.h"
 #import "UIKit+AFNetworking.h"
 #import "UIKit+hook.h"
 #import "ios_uikit_bridge.h"
@@ -324,6 +325,13 @@ static void *ProgressObserverContext = &ProgressObserverContext;
     }
 
     [self setInteractionEnabled:NO forDownloading:YES];
+
+    // Jar mods only exist once merged into the client jar. Rebuilding here
+    // keeps a profile that was imported, or whose list changed, up to date; it
+    // does nothing when there are none. A base that has never been downloaded
+    // cannot be patched yet, so that profile launches plain and picks its mods
+    // up the next time round.
+    [JarModUtils rebuildProfileNow:self.versionTextField.text];
 
     NSString *versionId = PLProfiles.current.profiles[self.versionTextField.text][@"lastVersionId"];
     NSDictionary *object = [remoteVersionList filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"(id == %@)", versionId]].firstObject;

@@ -299,13 +299,17 @@
 "profile.title.add_mods" = "Add mods";
 "profile.title.manage_mods" = "Installed mods";
 "profile.mods.disabled" = "Switched off";
+"profile.mods.header" = "Mods";
 "profile.mods.footer" = "Switching a mod off renames it so the loader skips it. Swipe a row to remove it for good.";
+"profile.jarmods.header" = "Jar mods";
+"profile.jarmods.footer" = "These are merged into the client jar, which is rebuilt from the untouched version every time this list changes.";
+"profile.jarmods.empty" = "No jar mods. Versions without a mod loader need their mods added this way.";
 "profile.mods.empty" = "No mods yet. Use Add mods to install some.";
 "profile.error.save_first" = "Save the profile first: mods go into its folder, and it does not have one yet.";
 "profile.jarmod.title.pick_version" = "Patch which version?";
 "profile.jarmod.message.pick_version" = "The mods are baked into a copy of the client jar. The version you pick is left untouched.";
 "profile.jarmod.title.done" = "Jar mod installed";
-"profile.jarmod.message.done" = "This profile now runs %@. The version you patched was left as it was.";
+"profile.jarmod.message.done" = "The client jar was rebuilt with the mods switched on. The version they were added to was left untouched.";
 "profile.jarmod.error.no_versions" = "No installed version has a client jar to patch yet. Play a version once, then try again.";
 "profile.jarmod.error.no_jar" = "That version has no client jar to patch.";
 "profile.jarmod.error.empty_mod" = "The selected files contain nothing to add to the jar.";
@@ -315,6 +319,7 @@
 "profile.import.error.no_version" = "The instance does not declare a Minecraft version.";
 "profile.import.error.no_gamedir" = "The instance has no .minecraft folder to import.";
 "profile.import.warn.loader_offline" = "The instance was imported, but its loader profile could not be downloaded. Reinstall the loader once you are back online.";
+"profile.import.warn.jarmods_later" = "The instance was imported with its jar mods. They will be merged into the client jar once that version has been downloaded, so start it once and they will be there the next time.";
 "profile.import.warn.forge" = "The instance was imported. Forge cannot be installed automatically, so install %@ yourself and the profile will pick it up.";
 "profile.title.separate_preference" = "Isolate settings";
 "profile.detail.separate_preference" = "Enable this option to isolate any changes made in settings. Doing a Reset will restore to global settings instead of default settings.";

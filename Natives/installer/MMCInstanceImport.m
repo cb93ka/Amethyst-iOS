@@ -1,3 +1,4 @@
+#import "JarModUtils.h"
 #import "MMCInstanceImport.h"
 #import "PLProfiles.h"
 #import "UnzipKit.h"
@@ -68,6 +69,31 @@ static NSString *const kConfigFile = @"instance.cfg";
         }
     }
     return nil;
+}
+
+// Returns YES when the export carried any, so the caller knows to rebuild
++ (BOOL)extractJarModsFrom:(UZKArchive *)archive
+                    prefix:(NSString *)prefix
+                 toProfile:(NSString *)profileName
+{
+    NSString *folder = [prefix stringByAppendingString:@"jarmods"];
+    NSString *probe = [folder stringByAppendingString:@"/"];
+
+    BOOL found = NO;
+    for (NSString *file in [archive listFilenames:nil]) {
+        if ([file hasPrefix:probe]) {
+            found = YES;
+            break;
+        }
+    }
+    if (!found) {
+        return NO;
+    }
+
+    NSError *error;
+    [ModpackUtils archive:archive extractDirectory:folder
+        toPath:[JarModUtils jarModsPathForProfile:profileName] error:&error];
+    return error == nil;
 }
 
 + (NSString *)runImportAtPath:(NSString *)path warning:(NSString **)outWarning {
@@ -155,6 +181,19 @@ static NSString *const kConfigFile = @"instance.cfg";
         @"lastVersionId": versionId
     }.mutableCopy;
     PLProfiles.current.selectedProfileName = name;
+
+    /*
+     * Versions without a mod loader carry their mods in jarmods/, merged into
+     * the client jar rather than loaded from a folder. Skipping that folder is
+     * why such an instance used to import and then start with no mods at all.
+     */
+    if ([self extractJarModsFrom:archive prefix:prefix toProfile:name]) {
+        NSString *rebuildError = [JarModUtils rebuildProfileNow:name];
+        if (rebuildError && !*outWarning) {
+            // The base version is not downloaded yet, so this waits for a launch
+            *outWarning = localize(@"profile.import.warn.jarmods_later", nil);
+        }
+    }
 
     return nil;
 }
