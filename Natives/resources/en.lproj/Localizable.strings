@@ -88,6 +88,7 @@
 "login.jit.checking" = "Checking for JIT";
 "login.jit.enabled" = "JIT has been enabled";
 "login.jit.waiting" = "JIT is not enabled yet";
+"login.jit.enabled_reattach" = "JIT enabled - StikDebug is needed again at launch";
 "login.jit.fail" = "JIT could not be enabled.";
 "login.jit.fail.title" = "JIT could not be enabled on your device.";
 "login.jit.fail.description" = "No integrations could be used to automatically enable JIT on your device, and it must now be enabled manually. Errors have been logged to latestlog.txt.";
@@ -296,6 +297,10 @@
 "profile.title.import" = "Import from MultiMC/Prism";
 "profile.title.jarmod" = "Add jar mod (legacy versions)";
 "profile.title.add_mods" = "Add mods";
+"profile.title.manage_mods" = "Installed mods";
+"profile.mods.disabled" = "Switched off";
+"profile.mods.footer" = "Switching a mod off renames it so the loader skips it. Swipe a row to remove it for good.";
+"profile.mods.empty" = "No mods yet. Use Add mods to install some.";
 "profile.error.save_first" = "Save the profile first: mods go into its folder, and it does not have one yet.";
 "profile.jarmod.title.pick_version" = "Patch which version?";
 "profile.jarmod.message.pick_version" = "The mods are baked into a copy of the client jar. The version you pick is left untouched.";

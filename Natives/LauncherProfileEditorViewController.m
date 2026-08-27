@@ -5,6 +5,7 @@
 #import "MinecraftResourceUtils.h"
 #import "installer/JarModUtils.h"
 #import "installer/ModpackInstallViewController.h"
+#import "installer/ProfileModsViewController.h"
 #import "PickTextField.h"
 #import "PLProfiles.h"
 #import "ProfileGameDir.h"
@@ -145,6 +146,14 @@
                   [weakSelf actionAddMods];
               }
             },
+            @{@"key": @"manage_mods",
+              @"icon": @"list.bullet",
+              @"title": @"profile.title.manage_mods",
+              @"type": self.typeButton,
+              @"action": ^void(){
+                  [weakSelf actionManageMods];
+              }
+            },
             @{@"key": @"add_jarmod",
               @"icon": @"shippingbox",
               @"title": @"profile.title.jarmod",
@@ -191,6 +200,14 @@
     UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
     nav.modalPresentationStyle = UIModalPresentationFormSheet;
     [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)actionManageMods {
+    if (![self requireSavedProfile]) return;
+
+    ProfileModsViewController *vc = [ProfileModsViewController new];
+    vc.profileName = self.oldName;
+    [self.navigationController pushViewController:vc animated:YES];
 }
 
 - (void)actionAddJarMod {

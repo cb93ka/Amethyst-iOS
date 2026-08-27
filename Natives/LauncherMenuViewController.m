@@ -138,8 +138,8 @@
     
     if (getEntitlementValue(@"get-task-allow")) {
         [self displayProgress:localize(@"login.jit.checking", nil)];
-        if (isJITEnabled(false)) {
-            [self reportJITEnabled];
+        if ([self reportJITStatusIfGranted]) {
+            // already reported
         } else if (@available(iOS 17.0, *)) {
             // From here JIT is switched on from outside the launcher, so the
             // answer can change while it sits in the background. Checking once
@@ -359,17 +359,33 @@
 // Re-asked every time the launcher comes back to the front, which is when the
 // person has just been away to StikDebug or TrollStore
 - (void)refreshJITStatus {
-    if (!isJITEnabled(false)) {
-        return;
+    if ([self reportJITStatusIfGranted]) {
+        [NSNotificationCenter.defaultCenter removeObserver:self
+            name:UIApplicationDidBecomeActiveNotification object:nil];
     }
-    [NSNotificationCenter.defaultCenter removeObserver:self
-        name:UIApplicationDidBecomeActiveNotification object:nil];
-    [self reportJITEnabled];
 }
 
-- (void)reportJITEnabled {
-    [self displayProgress:localize(@"login.jit.enabled", nil)];
+/**
+ * Reports whether the process was granted JIT, which is not the same question
+ * as whether a debugger is attached right now.
+ *
+ * Where the launcher drives JIT through breakpoints, it needs the debugger back
+ * at the moment the game starts. StikDebug detaches once its script has run, so
+ * asking about attachment here would always answer no, and the person would
+ * enable JIT once for nothing and again when they pressed Play.
+ */
+- (BOOL)reportJITStatusIfGranted {
+    int flags = 0;
+    csops(getpid(), 0, &flags, sizeof(flags));
+    if ((flags & CS_DEBUGGED) == 0 && !isJITEnabled(false)) {
+        return NO;
+    }
+
+    BOOL needsDebuggerAtLaunch = DeviceHasJITFlags(JIT_FLAG_FORCE_MIRRORED | JIT_FLAG_HAS_TXM);
+    [self displayProgress:localize(needsDebuggerAtLaunch
+        ? @"login.jit.enabled_reattach" : @"login.jit.enabled", nil)];
     [self displayProgress:nil];
+    return YES;
 }
 
 - (void)displayProgress:(NSString *)status {
