@@ -87,6 +87,7 @@
 
 "login.jit.checking" = "Checking for JIT";
 "login.jit.enabled" = "JIT has been enabled";
+"login.jit.waiting" = "JIT is not enabled yet";
 "login.jit.fail" = "JIT could not be enabled.";
 "login.jit.fail.title" = "JIT could not be enabled on your device.";
 "login.jit.fail.description" = "No integrations could be used to automatically enable JIT on your device, and it must now be enabled manually. Errors have been logged to latestlog.txt.";

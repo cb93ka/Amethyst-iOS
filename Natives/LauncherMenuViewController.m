@@ -139,10 +139,17 @@
     if (getEntitlementValue(@"get-task-allow")) {
         [self displayProgress:localize(@"login.jit.checking", nil)];
         if (isJITEnabled(false)) {
-            [self displayProgress:localize(@"login.jit.enabled", nil)];
-            [self displayProgress:nil];
+            [self reportJITEnabled];
         } else if (@available(iOS 17.0, *)) {
-            // enabling JIT for 17.0+ is done when we actually launch the game
+            // From here JIT is switched on from outside the launcher, so the
+            // answer can change while it sits in the background. Checking once
+            // and leaving "checking" on screen forever is what it used to do.
+            [self displayProgress:localize(@"login.jit.waiting", nil)];
+            [self displayProgress:nil];
+            [NSNotificationCenter.defaultCenter addObserver:self
+                selector:@selector(refreshJITStatus)
+                name:UIApplicationDidBecomeActiveNotification
+                object:nil];
         } else {
             [self enableJITWithAltKit];
         }
@@ -347,6 +354,22 @@
     if ([tableVC isKindOfClass:UITableViewController.class]) {
         [tableVC.tableView reloadData];
     }
+}
+
+// Re-asked every time the launcher comes back to the front, which is when the
+// person has just been away to StikDebug or TrollStore
+- (void)refreshJITStatus {
+    if (!isJITEnabled(false)) {
+        return;
+    }
+    [NSNotificationCenter.defaultCenter removeObserver:self
+        name:UIApplicationDidBecomeActiveNotification object:nil];
+    [self reportJITEnabled];
+}
+
+- (void)reportJITEnabled {
+    [self displayProgress:localize(@"login.jit.enabled", nil)];
+    [self displayProgress:nil];
 }
 
 - (void)displayProgress:(NSString *)status {
