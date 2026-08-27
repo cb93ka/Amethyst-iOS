@@ -347,7 +347,17 @@ static void *ProgressObserverContext = &ProgressObserverContext;
          * A base that has never been downloaded cannot be patched yet, so such
          * a profile launches plain and picks its mods up the next time round.
          */
-        [JarModUtils rebuildProfileNow:profileName];
+        NSString *jarModError = [JarModUtils rebuildProfileNow:profileName];
+        if (jarModError) {
+            // Launching anyway would start whatever jar happened to be lying
+            // around, which is the confusing way to fail
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.task = nil;
+                [self setInteractionEnabled:YES forDownloading:YES];
+                showDialog(localize(@"Error", nil), jarModError);
+            });
+            return;
+        }
 
         NSString *versionId = PLProfiles.current.profiles[profileName][@"lastVersionId"];
         NSDictionary *object = [remoteVersionList filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"(id == %@)", versionId]].firstObject;

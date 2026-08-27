@@ -17,6 +17,10 @@
 // Where a profile keeps the jar mods it was given
 + (NSString *)jarModsPathForProfile:(NSString *)profileName;
 
+// Whether the version this profile patches has been downloaded, and so whether
+// there is anything to merge into yet
++ (BOOL)canPatchProfile:(NSString *)profileName;
+
 // Copies the files in, then rebuilds. Calls back on the main thread.
 + (void)addMods:(NSArray<NSString *> *)modPaths
       toProfile:(NSString *)profileName

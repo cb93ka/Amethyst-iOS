@@ -189,9 +189,10 @@ static NSString *const kConfigFile = @"instance.cfg";
      */
     if ([self extractJarModsFrom:archive prefix:prefix toProfile:name]) {
         NSString *rebuildError = [JarModUtils rebuildProfileNow:name];
-        if (rebuildError && !*outWarning) {
-            // The base version is not downloaded yet, so this waits for a launch
-            *outWarning = localize(@"profile.import.warn.jarmods_later", nil);
+        if (!*outWarning && (rebuildError || ![JarModUtils canPatchProfile:name])) {
+            // Merging into a version that has not been downloaded has to wait
+            // for the launch that downloads it
+            *outWarning = rebuildError ?: localize(@"profile.import.warn.jarmods_later", nil);
         }
     }
 

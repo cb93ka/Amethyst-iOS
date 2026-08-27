@@ -6,6 +6,14 @@
 // Same convention the mods folder uses, so one rule covers both
 static NSString *const kDisabledSuffix = @".disabled";
 
+/*
+ * How the merged jar is put together. It travels in the stamp, so a jar left
+ * behind by a launcher that merged differently is rebuilt rather than trusted:
+ * the mods it was made from can be unchanged while the jar is still wrong.
+ * Raise it whenever buildVersion: changes what it produces.
+ */
+static NSString *const kBuildFormat = @"2";
+
 @implementation JarModUtils
 
 + (NSString *)versionsDirectory {
@@ -18,6 +26,20 @@ static NSString *const kDisabledSuffix = @".disabled";
     return [[[@(getenv("POJAV_GAME_DIR"))
         stringByAppendingPathComponent:gameDir]
         stringByAppendingPathComponent:@"jarmods"] stringByStandardizingPath];
+}
+
++ (NSString *)baseOfProfile:(NSMutableDictionary *)profile {
+    NSString *base = profile[@"jarmodBase"];
+    return base.length > 0 ? base : profile[@"lastVersionId"];
+}
+
++ (BOOL)canPatchProfile:(NSString *)profileName {
+    NSString *base = [self baseOfProfile:PLProfiles.current.profiles[profileName]];
+    if (base.length == 0) {
+        return NO;
+    }
+    return [NSFileManager.defaultManager fileExistsAtPath:
+        [NSString stringWithFormat:@"%1$@/%2$@/%2$@.jar", self.versionsDirectory, base]];
 }
 
 + (NSArray<NSString *> *)enabledModsAt:(NSString *)path {
@@ -73,7 +95,7 @@ static NSString *const kDisabledSuffix = @".disabled";
  * on the way into a game.
  */
 + (NSString *)stampForMods:(NSArray<NSString *> *)modPaths {
-    NSMutableArray<NSString *> *parts = [[NSMutableArray alloc] init];
+    NSMutableArray<NSString *> *parts = [[NSMutableArray alloc] initWithObjects:kBuildFormat, nil];
     for (NSString *path in modPaths) {
         NSDictionary *attributes = [NSFileManager.defaultManager
             attributesOfItemAtPath:path error:nil];
@@ -193,6 +215,15 @@ static NSString *const kDisabledSuffix = @".disabled";
     // Nothing was ever merged and nothing asks to be, which is every profile
     // that has no jar mods at all
     if (mods.count == 0 && !wasPatched) {
+        return nil;
+    }
+
+    if (mods.count > 0 && ![self canPatchProfile:profileName]) {
+        /*
+         * The version has never been downloaded, so there is no jar to patch
+         * yet. That is not a failure worth stopping a launch over: the launch
+         * is what downloads it, and the merge happens the next time round.
+         */
         return nil;
     }
 
