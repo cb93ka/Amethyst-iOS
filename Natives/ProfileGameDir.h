@@ -26,4 +26,10 @@
  */
 + (NSString *)separateProfileNamed:(NSString *)name;
 
+/**
+ * Deletes the folder a profile kept its files in. Does nothing when the
+ * profile shared the instance root, since those files belong to the others too.
+ */
++ (void)removeFolderOfProfile:(NSDictionary *)profile;
+
 @end

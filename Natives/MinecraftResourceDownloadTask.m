@@ -283,12 +283,17 @@
     [task resume];
 }
 
-- (void)downloadModFromDetail:(NSDictionary *)modDetail atIndex:(NSUInteger)selectedVersion {
+- (void)downloadModFromDetail:(NSDictionary *)modDetail
+                      atIndex:(NSUInteger)selectedVersion
+                    toProfile:(NSString *)profileName
+{
     [self prepareForDownload];
 
-    // Mods belong to whichever profile is selected, which may keep its own game
-    // directory under custom_gamedir rather than sharing the instance root
-    NSString *profileDir = [PLProfiles resolveKeyForCurrentProfile:@"gameDir"];
+    // A mod goes into the folder of the profile it was asked for, which is not
+    // always the selected one
+    NSMutableDictionary *profile = profileName
+        ? PLProfiles.current.profiles[profileName] : PLProfiles.current.selectedProfile;
+    NSString *profileDir = [profile[@"gameDir"] length] > 0 ? profile[@"gameDir"] : @".";
     NSString *modsDir = [[[@(getenv("POJAV_GAME_DIR"))
         stringByAppendingPathComponent:profileDir]
         stringByAppendingPathComponent:@"mods"] stringByStandardizingPath];
@@ -298,7 +303,7 @@
     if ([sha isKindOfClass:NSNull.class]) {
         sha = nil;
     }
-    NSString *profileName = PLProfiles.current.selectedProfileName;
+    NSString *targetName = profile[@"name"] ?: PLProfiles.current.selectedProfileName;
 
     NSURLSessionDownloadTask *task = [self
         createDownloadTask:modDetail[@"versionUrls"][selectedVersion]
@@ -309,7 +314,7 @@
         success:^{
             showDialog(localize(@"modpack.title.mod_installed", nil),
                 [NSString stringWithFormat:localize(@"modpack.message.mod_installed", nil),
-                    fileName, profileName]);
+                    fileName, targetName]);
         }];
 
     if (!task) {

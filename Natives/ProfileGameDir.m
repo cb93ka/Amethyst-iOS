@@ -39,6 +39,29 @@ static NSArray<NSString *> *PLSharedEntries(void) {
     return dir.length == 0 || [dir isEqualToString:@"."] || [dir isEqualToString:@"./"];
 }
 
++ (void)removeFolderOfProfile:(NSDictionary *)profile {
+    if ([self profileSharesRoot:profile]) {
+        // Those files are the other profiles' too
+        return;
+    }
+
+    NSString *path = [[@(getenv("POJAV_GAME_DIR"))
+        stringByAppendingPathComponent:profile[@"gameDir"]] stringByStandardizingPath];
+
+    // Refuse to touch anything that is not inside the instance root
+    NSString *root = [@(getenv("POJAV_GAME_DIR")) stringByStandardizingPath];
+    if (![path hasPrefix:[root stringByAppendingString:@"/"]] || [path isEqualToString:root]) {
+        NSLog(@"[Profiles] Refusing to delete %@: outside the instance root", path);
+        return;
+    }
+
+    NSError *error;
+    if (![NSFileManager.defaultManager removeItemAtPath:path error:&error]
+            && error.code != NSFileNoSuchFileError) {
+        NSLog(@"[Profiles] Could not delete %@: %@", path, error.localizedDescription);
+    }
+}
+
 + (NSString *)separateProfileNamed:(NSString *)name {
     NSMutableDictionary *profile = PLProfiles.current.profiles[name];
     if (!profile) {

@@ -444,7 +444,9 @@ static void *ProgressObserverContext = &ProgressObserverContext;
             });
         };
         if (installingSingleMod) {
-            [self.task downloadModFromDetail:userInfo[@"detail"] atIndex:[userInfo[@"index"] unsignedLongValue]];
+            [self.task downloadModFromDetail:userInfo[@"detail"]
+                atIndex:[userInfo[@"index"] unsignedLongValue]
+                toProfile:userInfo[@"profile"]];
         } else {
             [self.task downloadModpackFromAPI:notification.object detail:userInfo[@"detail"] atIndex:[userInfo[@"index"] unsignedLongValue]];
         }

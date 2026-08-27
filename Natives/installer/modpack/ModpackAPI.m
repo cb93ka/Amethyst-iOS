@@ -45,11 +45,20 @@
     return result;
 }
 
-- (void)installModFromDetail:(NSDictionary *)modDetail atIndex:(NSUInteger)selectedVersion {
+- (void)installModFromDetail:(NSDictionary *)modDetail
+                     atIndex:(NSUInteger)selectedVersion
+                   toProfile:(NSString *)profileName
+{
+    NSMutableDictionary *userInfo = @{
+        @"detail": modDetail,
+        @"index": @(selectedVersion)
+    }.mutableCopy;
+    if (profileName) {
+        userInfo[@"profile"] = profileName;
+    }
+
     [NSNotificationCenter.defaultCenter
-        postNotificationName:@"InstallMod"
-        object:self
-        userInfo:@{@"detail": modDetail, @"index": @(selectedVersion)}];
+        postNotificationName:@"InstallMod" object:self userInfo:userInfo];
 }
 
 // Some endpoints only answer to POST; resolving a pack's files in one call

@@ -16,7 +16,8 @@
 - (void)loadDetailsOfMod:(NSMutableDictionary *)item;
 
 - (void)installModpackFromDetail:(NSDictionary *)modDetail atIndex:(NSUInteger)selectedVersion;
-- (void)installModFromDetail:(NSDictionary *)modDetail atIndex:(NSUInteger)selectedVersion;
+// A mod belongs to one profile; nil means whichever is selected
+- (void)installModFromDetail:(NSDictionary *)modDetail atIndex:(NSUInteger)selectedVersion toProfile:(NSString *)profileName;
 - (void)downloader:(MinecraftResourceDownloadTask *)downloader submitDownloadTasksFromPackage:(NSString *)packagePath toPath:(NSString *)destPath;
 
 - (id)getEndpoint:(NSString *)endpoint params:(NSDictionary *)params;

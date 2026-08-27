@@ -1,7 +1,10 @@
 #import "LauncherNavigationController.h"
 #import "LauncherPreferences.h"
 #import "LauncherProfileEditorViewController.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import "MinecraftResourceUtils.h"
+#import "installer/JarModUtils.h"
+#import "installer/ModpackInstallViewController.h"
 #import "PickTextField.h"
 #import "PLProfiles.h"
 #import "ProfileGameDir.h"
@@ -9,7 +12,7 @@
 #import "ios_uikit_bridge.h"
 #import "utils.h"
 
-@interface LauncherProfileEditorViewController()<UIPickerViewDataSource, UIPickerViewDelegate>
+@interface LauncherProfileEditorViewController()<UIPickerViewDataSource, UIPickerViewDelegate, UIDocumentPickerDelegate>
 @property(nonatomic) NSString* oldName;
 
 @property(nonatomic) NSArray<NSDictionary *> *versionList;
@@ -132,6 +135,23 @@
               @"pickKeys": gamepadControlList,
               @"pickList": gamepadControlList
             },
+            // Mods belong to a profile, so they are added from inside one
+            @{@"key": @"add_mods",
+              @"icon": @"square.and.arrow.down",
+              @"title": @"profile.title.add_mods",
+              @"type": self.typeButton,
+              @"action": ^void(){
+                  [weakSelf actionAddMods];
+              }
+            },
+            @{@"key": @"add_jarmod",
+              @"icon": @"shippingbox",
+              @"title": @"profile.title.jarmod",
+              @"type": self.typeButton,
+              @"action": ^void(){
+                  [weakSelf actionAddJarMod];
+              }
+            },
             // Java tweaks
             @{@"key": @"javaVersion",
               @"icon": @"cube",
@@ -150,6 +170,59 @@
     ];
 
     [super viewDidLoad];
+}
+
+// Both of these write into the profile's folder, which only exists once the
+// profile has been saved at least once
+- (BOOL)requireSavedProfile {
+    if (self.oldName.length > 0) {
+        return YES;
+    }
+    showDialog(localize(@"Error", nil), localize(@"profile.error.save_first", nil));
+    return NO;
+}
+
+- (void)actionAddMods {
+    if (![self requireSavedProfile]) return;
+
+    ModpackInstallViewController *vc = [ModpackInstallViewController new];
+    vc.targetProfileName = self.oldName;
+    UINavigationController *nav = [[UINavigationController alloc] initWithRootViewController:vc];
+    nav.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:nav animated:YES completion:nil];
+}
+
+- (void)actionAddJarMod {
+    if (![self requireSavedProfile]) return;
+
+    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc]
+        initForOpeningContentTypes:@[UTTypeZIP, [UTType typeWithMIMEType:@"application/java-archive"]]
+        asCopy:YES];
+    picker.allowsMultipleSelection = YES;
+    picker.delegate = self;
+    picker.modalPresentationStyle = UIModalPresentationFormSheet;
+    [self presentViewController:picker animated:YES completion:nil];
+}
+
+- (void)documentPicker:(UIDocumentPickerViewController *)controller
+ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls
+{
+    if (urls.count == 0) return;
+
+    NSString *baseVersion = self.profile[@"lastVersionId"];
+    [JarModUtils patchVersion:baseVersion withMods:[urls valueForKey:@"path"]
+        completion:^(NSString *error, NSString *newVersionId) {
+            if (error) {
+                showDialog(localize(@"Error", nil), error);
+                return;
+            }
+            // Point this profile at the patched version rather than making a new one
+            self.profile[@"lastVersionId"] = newVersionId;
+            [self.tableView reloadData];
+            showDialog(localize(@"profile.jarmod.title.done", nil),
+                [NSString stringWithFormat:localize(@"profile.jarmod.message.done", nil),
+                    newVersionId]);
+        }];
 }
 
 - (void)actionClose {

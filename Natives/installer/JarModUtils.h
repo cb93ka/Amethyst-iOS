@@ -18,7 +18,8 @@
 
 /**
  * Runs off the main thread and calls back on it with nil on success, or a
- * message explaining what stopped it.
+ * message explaining what stopped it. On success the new version id is handed
+ * back for the caller to point a profile at.
  */
 + (void)patchVersion:(NSString *)baseVersionId
             withMods:(NSArray<NSString *> *)modPaths

@@ -25,7 +25,6 @@
 @property ModrinthAPI *modrinth;
 @property CurseForgeAPI *curseforge;
 @property(nonatomic, weak) ModpackAPI *source;
-@property(nonatomic) NSString *prompt;
 @end
 
 @implementation ModpackInstallViewController
@@ -45,20 +44,29 @@
         self.searchController.searchBar.scopeButtonTitles = @[@"Modrinth", @"CurseForge"];
         self.searchController.searchBar.delegate = self;
     }
+    BOOL installingMods = self.targetProfileName != nil;
     self.filters = @{
-        @"isModpack": @(YES),
+        @"isModpack": @(!installingMods),
         @"name": @" "
         // mcVersion, loader
     }.mutableCopy;
+    self.title = localize(installingMods
+        ? @"modpack.kind.mods" : @"modpack.kind.modpacks", nil);
 
-    UISegmentedControl *kindControl = [[UISegmentedControl alloc] initWithItems:@[
-        localize(@"modpack.kind.modpacks", nil),
-        localize(@"modpack.kind.mods", nil)
-    ]];
-    kindControl.selectedSegmentIndex = 0;
-    [kindControl addTarget:self action:@selector(changeKind:)
-        forControlEvents:UIControlEventValueChanged];
-    self.navigationItem.titleView = kindControl;
+    if (installingMods) {
+        // A mod has to match the profile it is going into, or it will download
+        // fine and then simply not load
+        NSDictionary *info = [ModpackUtils loaderInfoForVersionId:
+            PLProfiles.current.profiles[self.targetProfileName][@"lastVersionId"]];
+        NSString *loader = info[@"loader"];
+        NSString *mcVersion = info[@"mcVersion"];
+        self.filters[@"mcVersion"] = mcVersion ?: @"";
+        self.filters[@"loader"] = loader ?: @"";
+        self.navigationItem.prompt = loader
+            ? [NSString stringWithFormat:@"%@ · %@ %@",
+                self.targetProfileName, loader.capitalizedString, mcVersion]
+            : self.targetProfileName;
+    }
 
     [self updateSearchResults];
 }
@@ -87,32 +95,6 @@
 
 - (void)searchBar:(UISearchBar *)searchBar selectedScopeButtonIndexDidChange:(NSInteger)scope {
     self.source = scope == 0 ? (ModpackAPI *)self.modrinth : (ModpackAPI *)self.curseforge;
-    self.filters[@"name"] = @" ";
-    [self updateSearchResults];
-}
-
-- (void)changeKind:(UISegmentedControl *)sender {
-    BOOL isModpack = sender.selectedSegmentIndex == 0;
-    self.filters[@"isModpack"] = @(isModpack);
-
-    if (isModpack) {
-        // A modpack carries its own loader and version, so nothing to narrow by
-        [self.filters removeObjectForKey:@"mcVersion"];
-        [self.filters removeObjectForKey:@"loader"];
-    } else {
-        // A mod has to match the profile it is going into, or it simply will not load
-        NSDictionary *info = [ModpackUtils loaderInfoForVersionId:
-            PLProfiles.current.selectedProfile[@"lastVersionId"]];
-        NSString *loader = info[@"loader"];
-        NSString *mcVersion = info[@"mcVersion"];
-        self.filters[@"mcVersion"] = mcVersion ?: @"";
-        self.filters[@"loader"] = loader ?: @"";
-        self.prompt = loader ? [NSString stringWithFormat:@"%@ %@",
-            loader.capitalizedString, mcVersion] : nil;
-    }
-    self.navigationItem.prompt = isModpack ? nil : self.prompt;
-
-    // The name is unchanged, so nudge it to get past the no-op guard
     self.filters[@"name"] = @" ";
     [self updateSearchResults];
 }
@@ -214,7 +196,8 @@
             if ([self.filters[@"isModpack"] boolValue]) {
                 [self.source installModpackFromDetail:self.list[indexPath.row] atIndex:i];
             } else {
-                [self.source installModFromDetail:self.list[indexPath.row] atIndex:i];
+                [self.source installModFromDetail:self.list[indexPath.row] atIndex:i
+                    toProfile:self.targetProfileName];
             }
         }]];
     }];
