@@ -81,7 +81,7 @@ BOOL DeviceHasJITFlags(JITFlags flags);
 void init_bypassDyldLibValidation();
 void init_hookFunctions();
 void init_hookUIKitConstructor();
-void init_setupMultiDir();
+void init_setupGameDirectory();
 
 BOOL PLPatchMachOPlatformForFile(const char *path);
 

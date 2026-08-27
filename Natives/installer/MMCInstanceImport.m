@@ -120,7 +120,7 @@ static NSString *const kConfigFile = @"instance.cfg";
         return localize(@"profile.import.error.no_gamedir", nil);
     }
 
-    NSString *destPath = [NSString stringWithFormat:@"%s/custom_gamedir/%@",
+    NSString *destPath = [NSString stringWithFormat:@"%s/instances/%@",
         getenv("POJAV_GAME_DIR"), name];
     [ModpackUtils archive:archive extractDirectory:gameFolder toPath:destPath error:&error];
     if (error) {
@@ -151,7 +151,7 @@ static NSString *const kConfigFile = @"instance.cfg";
 
     PLProfiles.current.profiles[name] = @{
         @"name": name,
-        @"gameDir": [@"./custom_gamedir/" stringByAppendingString:name],
+        @"gameDir": [@"./instances/" stringByAppendingString:name],
         @"lastVersionId": versionId
     }.mutableCopy;
     PLProfiles.current.selectedProfileName = name;

@@ -305,7 +305,7 @@
 
     // Reset states
     unsetenv("DEMO_LOCK");
-    setenv("POJAV_GAME_DIR", [NSString stringWithFormat:@"%s/Library/Application Support/minecraft", getenv("POJAV_HOME")].UTF8String, 1);
+    setenv("POJAV_GAME_DIR", getenv("POJAV_HOME"), 1);
 
     id subtitle;
     if (isDemo) {

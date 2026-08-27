@@ -1,7 +1,6 @@
 #import "LauncherMenuViewController.h"
 #import "LauncherNavigationController.h"
 #import "LauncherPreferences.h"
-#import "LauncherPrefGameDirViewController.h"
 #import "LauncherPrefManageJREViewController.h"
 #import "LauncherProfileEditorViewController.h"
 #import "LauncherProfilesViewController.h"
@@ -20,11 +19,6 @@
 #import "installer/ModpackInstallViewController.h"
 #import "ios_uikit_bridge.h"
 #import "utils.h"
-
-typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
-    kInstances,
-    kProfiles
-};
 
 @interface LauncherProfilesViewController ()<UIDocumentPickerDelegate> //<UIContextMenuInteractionDelegate>
 
@@ -104,13 +98,6 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
     [self.navigationController performSelector:@selector(reloadProfileList)];
 }
 
-- (void)actionTogglePrefIsolation:(UISwitch *)sender {
-    if (!sender.isOn) {
-        setPrefBool(@"internal.isolated", NO);
-    }
-    toggleIsolatedPref(sender.isOn);
-}
-
 - (void)actionCreateFabricProfile {
     FabricInstallViewController *vc = [FabricInstallViewController new];
     [self presentNavigatedViewController:vc];
@@ -172,46 +159,15 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
 #pragma mark Table view
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return 2;
+    return 1;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    switch (section) {
-        case 0: return localize(@"profile.section.instance", nil);
-        case 1: return localize(@"profile.section.profiles", nil);
-    }
-    return nil;
+    return localize(@"profile.section.profiles", nil);
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    switch (section) {
-        case 0: return 2;
-        case 1: return [PLProfiles.current.profiles count];
-    }
-    return 0;
-}
-
-- (void)setupInstanceCell:(UITableViewCell *) cell atRow:(NSInteger)row {
-    cell.userInteractionEnabled = !getenv("DEMO_LOCK");
-    if (row == 0) {
-        cell.imageView.image = [UIImage systemImageNamed:@"folder"];
-        cell.textLabel.text = localize(@"preference.title.game_directory", nil);
-        cell.detailTextLabel.text = getenv("DEMO_LOCK") ? @".demo" : getPrefObject(@"general.game_directory");
-    } else {
-        NSString *imageName;
-        if (@available(iOS 15.0, *)) {
-            imageName = @"folder.badge.gearshape";
-        } else {
-            imageName = @"folder.badge.gear";
-        }
-        cell.imageView.image = [UIImage systemImageNamed:imageName];
-        cell.textLabel.text = localize(@"profile.title.separate_preference", nil);
-        cell.detailTextLabel.text = localize(@"profile.detail.separate_preference", nil);
-        UISwitch *view = [UISwitch new];
-        [view setOn:getPrefBool(@"internal.isolated") animated:NO];
-        [view addTarget:self action:@selector(actionTogglePrefIsolation:) forControlEvents:UIControlEventValueChanged];
-        cell.accessoryView = view;
-    }
+    return PLProfiles.current.profiles.count;
 }
 
 - (void)setupProfileCell:(UITableViewCell *) cell atRow:(NSInteger)row {
@@ -227,28 +183,22 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
 
 - (UITableViewCell *)tableView:(nonnull UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    NSString *cellID = indexPath.section == kInstances ? @"InstanceCell" : @"ProfileCell";
+    NSString *cellID = @"ProfileCell";
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:cellID];
     if (cell == nil) {
         cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:cellID];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         cell.detailTextLabel.numberOfLines = 0;
         cell.detailTextLabel.lineBreakMode = NSLineBreakByWordWrapping;
-        if (indexPath.section == kProfiles) {
-            cell.imageView.frame = CGRectMake(0, 0, 40, 40);
-            cell.imageView.isSizeFixed = YES;
-        }
+        cell.imageView.frame = CGRectMake(0, 0, 40, 40);
+        cell.imageView.isSizeFixed = YES;
     } else {
         cell.imageView.image = nil;
         cell.userInteractionEnabled = YES;
         cell.accessoryView = nil;
     }
 
-    if (indexPath.section == kInstances) {
-        [self setupInstanceCell:cell atRow:indexPath.row];
-    } else {
-        [self setupProfileCell:cell atRow:indexPath.row];
-    }
+    [self setupProfileCell:cell atRow:indexPath.row];
 
     cell.textLabel.enabled = cell.detailTextLabel.enabled = cell.userInteractionEnabled;
     return cell;
@@ -257,63 +207,7 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:NO];
 
-    if (indexPath.section == kInstances) {
-        if (indexPath.row == 0) {
-            [self.navigationController pushViewController:[LauncherPrefGameDirViewController new] animated:YES];
-        }
-        return;
-    }
-
     [self actionEditProfile:PLProfiles.current.profiles.allValues[indexPath.row]];
-}
-
-- (UIContextMenuConfiguration *)tableView:(UITableView *)tableView
-    contextMenuConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath
-                                        point:(CGPoint)point
-{
-    if (indexPath.section != kProfiles) {
-        return nil;
-    }
-
-    NSString *name = PLProfiles.current.profiles.allKeys[indexPath.row];
-    if (![ProfileGameDir profileSharesRoot:PLProfiles.current.profiles[name]]) {
-        // Already has its own folder, so there is nothing to offer
-        return nil;
-    }
-
-    return [UIContextMenuConfiguration configurationWithIdentifier:nil
-        previewProvider:nil
-        actionProvider:^UIMenu *(NSArray<UIMenuElement *> *suggestedActions) {
-            return [UIMenu menuWithTitle:@"" children:@[[UIAction
-                actionWithTitle:localize(@"profile.gamedir.title.separate", nil)
-                image:[UIImage systemImageNamed:@"folder.badge.plus"]
-                identifier:nil
-                handler:^(UIAction *action) {
-                    [self confirmSeparateProfileNamed:name];
-                }]]];
-        }];
-}
-
-- (void)confirmSeparateProfileNamed:(NSString *)name {
-    UIAlertController *alert = [UIAlertController
-        alertControllerWithTitle:localize(@"profile.gamedir.title.separate", nil)
-        message:localize(@"profile.gamedir.message.separate", nil)
-        preferredStyle:UIAlertControllerStyleAlert];
-
-    [alert addAction:[UIAlertAction actionWithTitle:localize(@"Cancel", nil)
-        style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:localize(@"OK", nil)
-        style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
-            NSString *error = [ProfileGameDir separateProfileNamed:name];
-            if (error) {
-                showDialog(localize(@"Error", nil), error);
-                return;
-            }
-            [self.tableView reloadData];
-            [self.navigationController performSelector:@selector(reloadProfileList)];
-        }]];
-
-    [self presentViewController:alert animated:YES completion:nil];
 }
 
 #pragma mark Context Menu configuration
@@ -351,7 +245,8 @@ typedef NS_ENUM(NSUInteger, LauncherProfilesTableSection) {
 
 - (UITableViewCellEditingStyle)tableView:(UITableView *)tableView editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath
 {
-    if (indexPath.section == kInstances || PLProfiles.current.profiles.count==1) {
+    // The last profile has to stay: there would be nothing left to launch
+    if (PLProfiles.current.profiles.count == 1) {
         return UITableViewCellEditingStyleNone;
     }
     return UITableViewCellEditingStyleDelete;

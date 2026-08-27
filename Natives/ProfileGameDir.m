@@ -2,23 +2,8 @@
 #import "ProfileGameDir.h"
 #import "utils.h"
 
-/**
- * Everything in the instance root that either belongs to the launcher or is
- * shared between every profile, and so must not follow one profile into its
- * own folder.
- *
- * This is a list of what stays rather than a list of what moves, so that game
- * data nobody thought of - a mod's own folder, a new resource kind - travels
- * with the profile instead of being left behind.
- */
-static NSArray<NSString *> *PLSharedEntries(void) {
-    return @[
-        @"versions", @"libraries", @"assets",
-        @"resources",       // legacy assets, mapped by name for old versions
-        @"custom_gamedir",  // where the separated folders themselves live
-        @"launcher_profiles.json", @"launcher_preferences.plist"
-    ];
-}
+// Profile folders all live here, under the launcher root
+static NSString *const kInstancesFolder = @"instances";
 
 @implementation ProfileGameDir
 
@@ -31,7 +16,7 @@ static NSArray<NSString *> *PLSharedEntries(void) {
     if (safe.length == 0) {
         safe = @"profile";
     }
-    return [@"./custom_gamedir/" stringByAppendingString:safe];
+    return [NSString stringWithFormat:@"./%@/%@", kInstancesFolder, safe];
 }
 
 + (BOOL)profileSharesRoot:(NSDictionary *)profile {
@@ -41,17 +26,20 @@ static NSArray<NSString *> *PLSharedEntries(void) {
 
 + (void)removeFolderOfProfile:(NSDictionary *)profile {
     if ([self profileSharesRoot:profile]) {
-        // Those files are the other profiles' too
+        // Left over from the old layout: that folder is the launcher root
         return;
     }
 
-    NSString *path = [[@(getenv("POJAV_GAME_DIR"))
-        stringByAppendingPathComponent:profile[@"gameDir"]] stringByStandardizingPath];
-
-    // Refuse to touch anything that is not inside the instance root
     NSString *root = [@(getenv("POJAV_GAME_DIR")) stringByStandardizingPath];
-    if (![path hasPrefix:[root stringByAppendingString:@"/"]] || [path isEqualToString:root]) {
-        NSLog(@"[Profiles] Refusing to delete %@: outside the instance root", path);
+    NSString *path = [[root stringByAppendingPathComponent:profile[@"gameDir"]]
+        stringByStandardizingPath];
+
+    // Only ever delete inside instances/. A profile whose gameDir points
+    // somewhere else would otherwise take the launcher's own files with it.
+    NSString *allowed = [[root stringByAppendingPathComponent:kInstancesFolder]
+        stringByAppendingString:@"/"];
+    if (![path hasPrefix:allowed] || path.length == allowed.length) {
+        NSLog(@"[Profiles] Refusing to delete %@: outside %@", path, allowed);
         return;
     }
 
@@ -60,44 +48,6 @@ static NSArray<NSString *> *PLSharedEntries(void) {
             && error.code != NSFileNoSuchFileError) {
         NSLog(@"[Profiles] Could not delete %@: %@", path, error.localizedDescription);
     }
-}
-
-+ (NSString *)separateProfileNamed:(NSString *)name {
-    NSMutableDictionary *profile = PLProfiles.current.profiles[name];
-    if (!profile) {
-        return localize(@"profile.gamedir.error.missing", nil);
-    }
-
-    NSString *relative = [self relativePathForProfileName:name];
-    NSString *root = @(getenv("POJAV_GAME_DIR"));
-    NSString *destination = [[root stringByAppendingPathComponent:relative]
-        stringByStandardizingPath];
-
-    NSFileManager *fm = NSFileManager.defaultManager;
-    NSError *error;
-    if (![fm createDirectoryAtPath:destination withIntermediateDirectories:YES
-            attributes:nil error:&error]) {
-        return error.localizedDescription;
-    }
-
-    NSArray<NSString *> *shared = PLSharedEntries();
-    for (NSString *entry in [fm contentsOfDirectoryAtPath:root error:nil]) {
-        if ([shared containsObject:entry]) {
-            continue;
-        }
-
-        NSString *from = [root stringByAppendingPathComponent:entry];
-        NSString *to = [destination stringByAppendingPathComponent:entry];
-        if ([fm fileExistsAtPath:to]) {
-            // Something is already there; leaving both alone beats overwriting
-            continue;
-        }
-        [fm moveItemAtPath:from toPath:to error:nil];
-    }
-
-    profile[@"gameDir"] = relative;
-    [PLProfiles.current save];
-    return nil;
 }
 
 @end

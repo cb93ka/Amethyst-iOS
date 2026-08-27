@@ -254,7 +254,7 @@ static const NSInteger kHashAlgoSHA1 = 1;
     NSString *tmpIconPath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"icon.png"];
     NSString *name = manifest[@"name"] ?: destPath.lastPathComponent;
     PLProfiles.current.profiles[name] = @{
-        @"gameDir": [NSString stringWithFormat:@"./custom_gamedir/%@", destPath.lastPathComponent],
+        @"gameDir": [NSString stringWithFormat:@"./instances/%@", destPath.lastPathComponent],
         @"name": name,
         @"lastVersionId": versionId,
         @"icon": [NSString stringWithFormat:@"data:image/png;base64,%@",

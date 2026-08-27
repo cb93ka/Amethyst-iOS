@@ -111,7 +111,8 @@
               @"icon": @"folder",
               @"title": @"preference.title.game_directory",
               @"type": self.typeTextField,
-              @"placeholder": [NSString stringWithFormat:@". -> /Documents/instances/%@", getPrefObject(@"general.game_directory")]
+              @"placeholder": [ProfileGameDir relativePathForProfileName:
+                  self.profile[@"name"] ?: self.oldName]
             },
             // Video and renderer settings
             @{@"key": @"renderer",

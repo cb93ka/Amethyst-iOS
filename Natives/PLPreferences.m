@@ -72,7 +72,7 @@
     if (global) {
         // Preferences that cannot be isolated
         NSDictionary *general = @{
-            @"game_directory": @"default",
+            @"game_directory": @"default", // legacy, read once by the layout migration
             @"hidden_sidebar": @(realUIIdiom == UIUserInterfaceIdiomPhone),
             @"appicon": @"AppIcon-Light"
         };

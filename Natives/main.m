@@ -207,34 +207,97 @@ void init_setupCustomControls() {
     generateAndSaveDefaultControlForGamepad();
 }
 
-void init_setupMultiDir() {
-    NSString *multidir = getPrefObject(@"general.game_directory");
-    if (multidir.length == 0) {
-        multidir = @"default";
-        setPrefObject(@"general.game_directory", multidir);
-        NSLog(@"[Pre-init] Game directory was not set. Defaulting to %@ for future use.\n", multidir);
-    } else {
-        NSLog(@"[Pre-init] Restored game directory preference (%@)\n", multidir);
+/*
+ * Moves a launcher set up the old way over to the new layout, once.
+ *
+ * It used to be that every game directory kept its own copy of versions,
+ * libraries and assets, while the profiles inside it shared one folder for
+ * their worlds and mods. Now those downloads are shared by everything and each
+ * profile has a folder to itself.
+ *
+ * Only moves: nothing is deleted, and anything already in the way is left be.
+ */
+void init_migrateToPerProfileLayout(NSString *root) {
+    NSString *instanceName = getPrefObject(@"general.game_directory");
+    if (instanceName.length == 0) {
+        instanceName = @"default";
+    }
+    NSString *legacy = [[root stringByAppendingPathComponent:@"instances"]
+        stringByAppendingPathComponent:instanceName];
+
+    // The old layout is recognised by its versions folder sitting one level in
+    if (![fm fileExistsAtPath:[legacy stringByAppendingPathComponent:@"versions"]]) {
+        return;
+    }
+    NSLog(@"[Pre-init] Migrating %@ to the per-profile layout", legacy);
+
+    // The downloads every profile shares move up to the launcher root
+    for (NSString *name in @[@"versions", @"libraries", @"assets", @"resources",
+                             @"launcher_profiles.json"]) {
+        NSString *from = [legacy stringByAppendingPathComponent:name];
+        NSString *to = [root stringByAppendingPathComponent:name];
+        if ([fm fileExistsAtPath:from] && ![fm fileExistsAtPath:to]) {
+            [fm moveItemAtPath:from toPath:to error:nil];
+        }
     }
 
-    const char *home = getenv("POJAV_HOME");
-    NSString *lasmPath = [NSString stringWithFormat:@"%s/Library/Application Support/minecraft", home];
-    NSString *multidirPath = [NSString stringWithFormat:@"%s/instances/%@", home, multidir];
-
-
-    NSArray *dirsToCreate = @[
-        [NSString stringWithFormat:@"%s/.demo", home],
-        [NSString stringWithFormat:@"%s/java_runtimes", home],
-        lasmPath.stringByDeletingLastPathComponent,
-        multidirPath
-    ];
-    for (NSString *dir in dirsToCreate) {
-        [fm createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    // Folders that modpacks were unpacked into become instances of their own
+    NSString *customRoot = [legacy stringByAppendingPathComponent:@"custom_gamedir"];
+    NSMutableDictionary<NSString *, NSString *> *renamed = [NSMutableDictionary new];
+    for (NSString *name in [fm contentsOfDirectoryAtPath:customRoot error:nil]) {
+        NSString *to = [[root stringByAppendingPathComponent:@"instances"]
+            stringByAppendingPathComponent:name];
+        if ([fm fileExistsAtPath:to]) {
+            continue;
+        }
+        if ([fm moveItemAtPath:[customRoot stringByAppendingPathComponent:name]
+                toPath:to error:nil]) {
+            renamed[name] = name;
+        }
     }
-    [fm removeItemAtPath:lasmPath error:nil];
-    [fm createSymbolicLinkAtPath:lasmPath withDestinationPath:multidirPath error:nil];
-    [fm changeCurrentDirectoryPath:lasmPath];
-    setenv("POJAV_GAME_DIR", lasmPath.UTF8String, 1);
+    [fm removeItemAtPath:customRoot error:nil];
+
+    // What is left in the old folder is what the shared profiles were using,
+    // so it stays put and simply becomes one instance among the others
+    NSMutableDictionary *profiles = parseJSONFromFile(
+        [root stringByAppendingPathComponent:@"launcher_profiles.json"]);
+    if (profiles[@"NSErrorObject"]) {
+        return;
+    }
+
+    for (NSString *key in [profiles[@"profiles"] allKeys]) {
+        NSMutableDictionary *profile = profiles[@"profiles"][key];
+        NSString *dir = profile[@"gameDir"];
+
+        if (dir.length == 0 || [dir isEqualToString:@"."] || [dir isEqualToString:@"./"]) {
+            profile[@"gameDir"] = [@"./instances/" stringByAppendingString:instanceName];
+        } else if ([dir hasPrefix:@"./custom_gamedir/"]) {
+            NSString *name = dir.lastPathComponent;
+            if (renamed[name]) {
+                profile[@"gameDir"] = [@"./instances/" stringByAppendingString:name];
+            }
+        }
+    }
+    saveJSONToFile(profiles, [root stringByAppendingPathComponent:@"launcher_profiles.json"]);
+}
+
+/*
+ * The launcher root holds what every profile shares - versions, libraries and
+ * assets - while each profile keeps its worlds, mods and settings in a folder
+ * of its own under instances/.
+ */
+void init_setupGameDirectory() {
+    NSString *root = @(getenv("POJAV_HOME"));
+
+    init_migrateToPerProfileLayout(root);
+
+    for (NSString *name in @[@".demo", @"java_runtimes", @"instances", @"versions"]) {
+        [fm createDirectoryAtPath:[root stringByAppendingPathComponent:name]
+            withIntermediateDirectories:YES attributes:nil error:nil];
+    }
+
+    [fm changeCurrentDirectoryPath:root];
+    setenv("POJAV_GAME_DIR", root.UTF8String, 1);
 }
 
 void init_setupResolvConf() {
@@ -306,7 +369,7 @@ int main(int argc, char *argv[]) {
     NSLog(@"[Debugging] Debug log enabled: %@", debugLogEnabled ? @"YES" : @"NO");
 
     init_setupResolvConf();
-    init_setupMultiDir();
+    init_setupGameDirectory();
     toggleIsolatedPref(NO);
     [PLProfiles updateCurrent];
     init_setupAccounts();
