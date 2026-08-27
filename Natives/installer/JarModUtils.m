@@ -33,6 +33,24 @@ static NSString *const kDisabledSuffix = @".disabled";
 }
 
 // Reads every mod, the last one winning where two touch the same file
+/*
+ * What the enabled mods look like right now, so a rebuild that would produce
+ * the same jar can be skipped. Rewriting a jar takes long enough to be worth
+ * not doing on the way into a game.
+ */
++ (NSString *)stampForMods:(NSArray<NSString *> *)modPaths {
+    NSMutableArray<NSString *> *parts = [[NSMutableArray alloc] init];
+    for (NSString *path in modPaths) {
+        NSDictionary *attributes = [NSFileManager.defaultManager
+            attributesOfItemAtPath:path error:nil];
+        [parts addObject:[NSString stringWithFormat:@"%@:%@:%f",
+            path.lastPathComponent,
+            attributes[NSFileSize] ?: @(0),
+            [attributes[NSFileModificationDate] timeIntervalSince1970]]];
+    }
+    return [parts componentsJoinedByString:@"|"];
+}
+
 + (NSDictionary<NSString *, NSData *> *)entriesFromMods:(NSArray<NSString *> *)modPaths
                                                   error:(NSString **)outError
 {
@@ -150,7 +168,8 @@ static NSString *const kDisabledSuffix = @".disabled";
     }
 
     NSString *base = profile[@"jarmodBase"];
-    if (base.length == 0) {
+    BOOL wasPatched = base.length > 0;
+    if (!wasPatched) {
         base = profile[@"lastVersionId"];
     }
     if (base.length == 0) {
@@ -160,6 +179,20 @@ static NSString *const kDisabledSuffix = @".disabled";
     NSArray<NSString *> *mods = [self enabledModsAt:[self jarModsPathForProfile:profileName]];
     NSString *derived = [self derivedIdForBase:base profile:profileName];
 
+    // Nothing was ever merged and nothing asks to be, which is every profile
+    // that has no jar mods at all
+    if (mods.count == 0 && !wasPatched) {
+        return nil;
+    }
+
+    NSString *stamp = [self stampForMods:mods];
+    if (wasPatched && [profile[@"jarmodStamp"] isEqualToString:stamp] &&
+        [NSFileManager.defaultManager fileExistsAtPath:
+            [self.versionsDirectory stringByAppendingPathComponent:derived]]) {
+        // The jar already standing is the one this would build
+        return nil;
+    }
+
     if (mods.count == 0) {
         // Nothing switched on: the profile goes back to the version it started
         // from, and the patched one is of no further use
@@ -167,6 +200,7 @@ static NSString *const kDisabledSuffix = @".disabled";
             [self.versionsDirectory stringByAppendingPathComponent:derived] error:nil];
         profile[@"lastVersionId"] = base;
         [profile removeObjectForKey:@"jarmodBase"];
+        [profile removeObjectForKey:@"jarmodStamp"];
         [PLProfiles.current save];
         return nil;
     }
@@ -177,6 +211,7 @@ static NSString *const kDisabledSuffix = @".disabled";
     }
 
     profile[@"jarmodBase"] = base;
+    profile[@"jarmodStamp"] = stamp;
     profile[@"lastVersionId"] = derived;
     [PLProfiles.current save];
     return nil;

@@ -100,6 +100,32 @@ void init_loadCustomJvmFlags(int* argc, const char** argv) {
     }
 }
 
+/*
+ * Whether a version predates the programmable pipeline.
+ *
+ * Wanting Java 8 is not by itself that pipeline: 1.13 through 1.16.5 ask for a
+ * core profile while still running on 8. The asset index is named after the
+ * release it belongs to, which tells the two apart; the oldest releases name
+ * theirs "legacy" or "pre-1.6".
+ */
+static BOOL usesFixedFunctionGL(id launchTarget, NSString *jreTag) {
+    if (![jreTag isEqualToString:@"1_16_5_older"]) {
+        return NO;
+    }
+    NSString *assets = [launchTarget isKindOfClass:NSDictionary.class]
+        ? launchTarget[@"assets"] : nil;
+    if (![assets isKindOfClass:NSString.class]) {
+        // Nothing to go on, so the version is left with what it had before
+        return NO;
+    }
+
+    NSArray<NSString *> *parts = [assets componentsSeparatedByString:@"."];
+    if (parts.count < 2 || ![parts[0] isEqualToString:@"1"]) {
+        return YES;
+    }
+    return parts[1].integerValue < 13;
+}
+
 int launchJVM(NSString *username, id launchTarget, int width, int height, int minVersion) {
     NSLog(@"[JavaLauncher] Beginning JVM launch");
 
@@ -255,18 +281,14 @@ int launchJVM(NSString *username, id launchTarget, int width, int height, int mi
     if (glLibName) {
         if (!strcmp(glLibName, "auto")) {
             /*
-             * Versions old enough to ask for Java 8 draw through the
-             * fixed-function pipeline, which only gl4es provides. Naming ANGLE
-             * here regardless left LWJGL bound to it whenever it loaded GL
-             * before the window was created, and the correction that follows
-             * window creation then came too late: the game ran, but its
-             * interface was never drawn.
-             *
-             * The preset now agrees with what pojavInitOpenGL settles on
-             * anyway, so there is no window for the two to disagree in.
+             * Versions that draw through the fixed-function pipeline can only
+             * use gl4es. Naming ANGLE here regardless left LWJGL bound to it
+             * whenever GL was loaded before the window existed, and the
+             * correction that follows window creation then came too late: the
+             * game ran, but its interface was never drawn.
              */
-            BOOL wantsLegacyGL = [defaultJRETag isEqualToString:@"1_16_5_older"];
-            glLibName = wantsLegacyGL ? RENDERER_NAME_GL4ES : RENDERER_NAME_MTL_ANGLE;
+            glLibName = usesFixedFunctionGL(launchTarget, defaultJRETag)
+                ? RENDERER_NAME_GL4ES : RENDERER_NAME_MTL_ANGLE;
         }
         margv[++margc] = [NSString stringWithFormat:@"-Dorg.lwjgl.opengl.libname=%s", glLibName].UTF8String;
     }

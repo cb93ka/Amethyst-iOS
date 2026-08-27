@@ -326,22 +326,7 @@ static void *ProgressObserverContext = &ProgressObserverContext;
 
     [self setInteractionEnabled:NO forDownloading:YES];
 
-    // Jar mods only exist once merged into the client jar. Rebuilding here
-    // keeps a profile that was imported, or whose list changed, up to date; it
-    // does nothing when there are none. A base that has never been downloaded
-    // cannot be patched yet, so that profile launches plain and picks its mods
-    // up the next time round.
-    [JarModUtils rebuildProfileNow:self.versionTextField.text];
-
-    NSString *versionId = PLProfiles.current.profiles[self.versionTextField.text][@"lastVersionId"];
-    NSDictionary *object = [remoteVersionList filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"(id == %@)", versionId]].firstObject;
-    if (!object) {
-        object = @{
-            @"id": versionId,
-            @"type": @"custom"
-        };
-    }
-
+    NSString *profileName = self.versionTextField.text;
     self.task = [MinecraftResourceDownloadTask new];
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         __weak LauncherNavigationController *weakSelf = self;
@@ -352,6 +337,27 @@ static void *ProgressObserverContext = &ProgressObserverContext;
                 weakSelf.progressVC = nil;
             });
         };
+
+        /*
+         * Jar mods only exist once merged into the client jar, so a profile
+         * that was imported, or whose list changed, is brought up to date here.
+         * Merging rewrites the jar, which is why this waits for a background
+         * queue, and why a profile with nothing to merge is left alone.
+         *
+         * A base that has never been downloaded cannot be patched yet, so such
+         * a profile launches plain and picks its mods up the next time round.
+         */
+        [JarModUtils rebuildProfileNow:profileName];
+
+        NSString *versionId = PLProfiles.current.profiles[profileName][@"lastVersionId"];
+        NSDictionary *object = [remoteVersionList filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"(id == %@)", versionId]].firstObject;
+        if (!object) {
+            object = @{
+                @"id": versionId,
+                @"type": @"custom"
+            };
+        }
+
         [self.task downloadVersion:object];
         dispatch_async(dispatch_get_main_queue(), ^{
             self.progressViewMain.observedProgress = self.task.progress;
