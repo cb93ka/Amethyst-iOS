@@ -252,8 +252,19 @@ int launchJVM(NSString *username, id launchTarget, int width, int height, int mi
     const char *glLibName = getenv("POJAV_RENDERER");
     if (glLibName) {
         if (!strcmp(glLibName, "auto")) {
-            // workaround only applies to 1.20.2+
-            glLibName = RENDERER_NAME_MTL_ANGLE;
+            /*
+             * Versions old enough to ask for Java 8 draw through the
+             * fixed-function pipeline, which only gl4es provides. Naming ANGLE
+             * here regardless left LWJGL bound to it whenever it loaded GL
+             * before the window was created, and the correction that follows
+             * window creation then came too late: the game ran, but its
+             * interface was never drawn.
+             *
+             * The preset now agrees with what pojavInitOpenGL settles on
+             * anyway, so there is no window for the two to disagree in.
+             */
+            BOOL wantsLegacyGL = [defaultJRETag isEqualToString:@"1_16_5_older"];
+            glLibName = wantsLegacyGL ? RENDERER_NAME_GL4ES : RENDERER_NAME_MTL_ANGLE;
         }
         margv[++margc] = [NSString stringWithFormat:@"-Dorg.lwjgl.opengl.libname=%s", glLibName].UTF8String;
     }
