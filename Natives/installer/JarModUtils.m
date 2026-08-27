@@ -32,39 +32,27 @@ static NSString *const kDisabledSuffix = @".disabled";
     return enabled;
 }
 
-// Reads every mod, the last one winning where two touch the same file
 /*
- * What the enabled mods look like right now, so a rebuild that would produce
- * the same jar can be skipped. Rewriting a jar takes long enough to be worth
- * not doing on the way into a game.
+ * Everything the merged jar should hold: the client first, then each mod over
+ * it, the last one winning where two touch the same file.
+ *
+ * META-INF is dropped on the way. The client carries a signature over its
+ * classes there, and refuses to start once those classes no longer match it.
  */
-+ (NSString *)stampForMods:(NSArray<NSString *> *)modPaths {
-    NSMutableArray<NSString *> *parts = [[NSMutableArray alloc] init];
-    for (NSString *path in modPaths) {
-        NSDictionary *attributes = [NSFileManager.defaultManager
-            attributesOfItemAtPath:path error:nil];
-        [parts addObject:[NSString stringWithFormat:@"%@:%@:%f",
-            path.lastPathComponent,
-            attributes[NSFileSize] ?: @(0),
-            [attributes[NSFileModificationDate] timeIntervalSince1970]]];
-    }
-    return [parts componentsJoinedByString:@"|"];
-}
-
-+ (NSDictionary<NSString *, NSData *> *)entriesFromMods:(NSArray<NSString *> *)modPaths
-                                                  error:(NSString **)outError
++ (NSMutableDictionary<NSString *, NSData *> *)entriesFromArchives:(NSArray<NSString *> *)paths
+                                                             error:(NSString **)outError
 {
     NSMutableDictionary<NSString *, NSData *> *entries = [[NSMutableDictionary alloc] init];
 
-    for (NSString *modPath in modPaths) {
+    for (NSString *path in paths) {
         NSError *error;
-        UZKArchive *mod = [[UZKArchive alloc] initWithPath:modPath error:&error];
-        if (!mod) {
+        UZKArchive *archive = [[UZKArchive alloc] initWithPath:path error:&error];
+        if (!archive) {
             *outError = error.localizedDescription;
             return nil;
         }
 
-        [mod performOnDataInArchive:^(UZKFileInfo *info, NSData *data, BOOL *stop) {
+        [archive performOnDataInArchive:^(UZKFileInfo *info, NSData *data, BOOL *stop) {
             if (info.isDirectory || [info.filename hasPrefix:@"META-INF/"]) {
                 return;
             }
@@ -77,6 +65,24 @@ static NSString *const kDisabledSuffix = @".disabled";
         }
     }
     return entries;
+}
+
+/*
+ * What the enabled mods look like right now, so a rebuild that would produce
+ * the same jar can be skipped. Merging takes long enough to be worth not doing
+ * on the way into a game.
+ */
++ (NSString *)stampForMods:(NSArray<NSString *> *)modPaths {
+    NSMutableArray<NSString *> *parts = [[NSMutableArray alloc] init];
+    for (NSString *path in modPaths) {
+        NSDictionary *attributes = [NSFileManager.defaultManager
+            attributesOfItemAtPath:path error:nil];
+        [parts addObject:[NSString stringWithFormat:@"%@:%@:%f",
+            path.lastPathComponent,
+            attributes[NSFileSize] ?: @(0),
+            [attributes[NSFileModificationDate] timeIntervalSince1970]]];
+    }
+    return [parts componentsJoinedByString:@"|"];
 }
 
 + (NSString *)derivedIdForBase:(NSString *)base profile:(NSString *)profileName {
@@ -101,14 +107,22 @@ static NSString *const kDisabledSuffix = @".disabled";
         return localize(@"profile.jarmod.error.no_jar", nil);
     }
 
-    NSString *modError = nil;
-    NSDictionary<NSString *, NSData *> *modEntries = [self entriesFromMods:modPaths error:&modError];
-    if (!modEntries) {
-        return modError;
+    NSString *readError = nil;
+    NSMutableDictionary<NSString *, NSData *> *entries =
+        [self entriesFromArchives:[@[baseJar] arrayByAddingObjectsFromArray:modPaths]
+                            error:&readError];
+    if (!entries) {
+        return readError;
     }
 
-    // Always start from the untouched base, so switching a mod off really
-    // removes it rather than leaving it merged in from a previous build
+    /*
+     * Written out in one pass as a jar of its own, rather than edited into a
+     * copy of the client. Changing an entry of an archive in place rewrites the
+     * whole archive, and the mods between them have as many entries as it would
+     * take rewrites; the wait was long enough to look like the launcher had
+     * stopped. Building from nothing also means starting from the untouched
+     * client every time, so switching a mod off really removes it.
+     */
     NSString *newDir = [root stringByAppendingPathComponent:newId];
     [fm removeItemAtPath:newDir error:nil];
 
@@ -119,31 +133,28 @@ static NSString *const kDisabledSuffix = @".disabled";
 
     NSString *newJar = [newDir stringByAppendingPathComponent:
         [newId stringByAppendingPathExtension:@"jar"]];
-    if (![fm copyItemAtPath:baseJar toPath:newJar error:&error]) {
-        return error.localizedDescription;
-    }
-
-    // Editing a copy of a valid archive, rather than building one from nothing
     UZKArchive *jar = [[UZKArchive alloc] initWithPath:newJar error:&error];
     if (!jar) {
         return error.localizedDescription;
     }
 
-    // The client carries a signature over its classes there and refuses to
-    // start once those classes no longer match it
-    for (NSString *entry in [jar listFilenames:&error]) {
-        if ([entry hasPrefix:@"META-INF/"] && ![jar deleteFile:entry error:&error]) {
+    for (NSString *name in entries) {
+        // Nothing here is written twice, so there is no entry to overwrite, and
+        // saying so keeps each write from copying the archive to find that out
+        if (![jar writeData:entries[name] filePath:name fileDate:nil
+                posixPermissions:0644 compressionMethod:UZKCompressionMethodDefault
+                password:nil overwrite:NO error:&error]) {
             return error.localizedDescription;
         }
-    }
-    if (error) {
-        return error.localizedDescription;
     }
 
-    for (NSString *entry in modEntries) {
-        if (![jar writeData:modEntries[entry] filePath:entry error:&error]) {
-            return error.localizedDescription;
-        }
+    // A jar that came out short would be found by the game rather than here,
+    // as a missing class in the middle of starting up
+    NSUInteger written = [[[UZKArchive alloc] initWithPath:newJar error:nil]
+        listFilenames:nil].count;
+    if (written != entries.count) {
+        [fm removeItemAtPath:newDir error:nil];
+        return localize(@"profile.jarmod.error.incomplete", nil);
     }
 
     // A self-contained manifest: inheriting would keep the base version's client

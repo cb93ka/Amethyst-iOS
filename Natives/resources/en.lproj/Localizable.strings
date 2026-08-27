@@ -313,6 +313,7 @@
 "profile.jarmod.error.no_versions" = "No installed version has a client jar to patch yet. Play a version once, then try again.";
 "profile.jarmod.error.no_jar" = "That version has no client jar to patch.";
 "profile.jarmod.error.empty_mod" = "The selected files contain nothing to add to the jar.";
+"profile.jarmod.error.incomplete" = "The patched jar came out incomplete and was discarded.";
 "profile.import.title.done" = "Instance imported";
 "profile.import.message.done" = "The instance is ready to play.";
 "profile.import.error.not_instance" = "This zip does not contain mmc-pack.json, so it is not a MultiMC or Prism instance export.";
