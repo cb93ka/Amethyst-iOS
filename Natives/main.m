@@ -296,6 +296,23 @@ void init_setupGameDirectory() {
             withIntermediateDirectories:YES attributes:nil error:nil];
     }
 
+    /*
+     * Desktop Java believes it is on macOS and works out where Minecraft lives
+     * from user.home. Installers - Forge's above all - offer that path as their
+     * default and fail on it when it does not exist.
+     *
+     * The link goes in the container's own Library rather than under the
+     * launcher folder: pointing at the launcher root from inside itself would
+     * make a directory that contains itself, and it keeps the folder the person
+     * browses free of it.
+     */
+    NSString *macPath = [@(getenv("HOME"))
+        stringByAppendingPathComponent:@"Library/Application Support/minecraft"];
+    [fm createDirectoryAtPath:macPath.stringByDeletingLastPathComponent
+        withIntermediateDirectories:YES attributes:nil error:nil];
+    [fm removeItemAtPath:macPath error:nil];
+    [fm createSymbolicLinkAtPath:macPath withDestinationPath:root error:nil];
+
     [fm changeCurrentDirectoryPath:root];
     setenv("POJAV_GAME_DIR", root.UTF8String, 1);
 }
